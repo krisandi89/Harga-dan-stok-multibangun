@@ -72,7 +72,45 @@ async function fetchSheetData(mode) {
 
         const csvText = await response.text();
 
-        // Parse CSV using Papa Parse
+        // For STOK mode, we need to find the actual header row (starts with "Brand")
+        if (mode === 'stok') {
+            const lines = csvText.split('\n');
+            let headerIndex = -1;
+
+            // Find the line that starts with "Brand"
+            for (let i = 0; i < lines.length; i++) {
+                if (lines[i].startsWith('Brand,')) {
+                    headerIndex = i;
+                    break;
+                }
+            }
+
+            if (headerIndex !== -1) {
+                // Rebuild CSV starting from header row
+                const cleanedCsv = lines.slice(headerIndex).join('\n');
+
+                const parsed = Papa.parse(cleanedCsv, {
+                    header: true,
+                    skipEmptyLines: true,
+                    transformHeader: (header) => header.trim()
+                });
+
+                if (parsed.errors.length > 0) {
+                    console.warn('CSV parsing warnings:', parsed.errors);
+                }
+
+                state.headers[mode] = parsed.meta.fields || [];
+                state.data[mode] = parsed.data;
+                state.dataLoaded[mode] = true;
+
+                console.log(`${mode} data loaded:`, state.data[mode].length, 'rows');
+                console.log(`${mode} headers:`, state.headers[mode]);
+
+                return true;
+            }
+        }
+
+        // Default parsing for HARGA mode (or fallback)
         const parsed = Papa.parse(csvText, {
             header: true,
             skipEmptyLines: true,
