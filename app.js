@@ -172,19 +172,41 @@ function showNoResults(query) {
 
 function showResults(results, query) {
     const mode = state.currentMode;
-    const headers = state.headers[mode];
+    let headers = state.headers[mode];
+    let displayHeaders = headers;
+    let processedResults = results;
+
+    // Custom header mapping for STOK mode
+    if (mode === 'stok') {
+        // Define the columns we want to show for STOK (including Brand)
+        displayHeaders = ['Brand', 'Material', 'Dimensi Roll', 'Saldo', 'Keterangan', 'Gudang'];
+
+        // Process results to combine Saldo with unit column
+        processedResults = results.map(row => {
+            // Find the unit column (column after Saldo, typically empty header or specific name)
+            const saldoValue = row['Saldo'] || '';
+            // Look for unit in the 5th column (index after Saldo)
+            const unitKey = Object.keys(row).find(key => key === '' || key.match(/^(pcs|m2|m'|m|batang|roll)$/i));
+            const unit = unitKey ? row[unitKey] : '';
+
+            return {
+                ...row,
+                'Saldo': unit ? `${saldoValue} ${unit}` : saldoValue
+            };
+        });
+    }
 
     // Build table header
     elements.tableHeader.innerHTML = `
         <tr>
-            ${headers.map(h => `<th>${h}</th>`).join('')}
+            ${displayHeaders.map(h => `<th>${h}</th>`).join('')}
         </tr>
     `;
 
     // Build table body with highlighted text
-    elements.tableBody.innerHTML = results.map(row => `
+    elements.tableBody.innerHTML = processedResults.map(row => `
         <tr>
-            ${headers.map(h => `<td>${highlightText(row[h] || '-', query)}</td>`).join('')}
+            ${displayHeaders.map(h => `<td>${highlightText(row[h] || '-', query)}</td>`).join('')}
         </tr>
     `).join('');
 
