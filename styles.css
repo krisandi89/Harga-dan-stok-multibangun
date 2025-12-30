@@ -9,35 +9,37 @@
     --bg-secondary: #12121a;
     --bg-card: rgba(26, 26, 46, 0.6);
     --bg-glass: rgba(255, 255, 255, 0.03);
-    
+
     --accent-primary: #6366f1;
     --accent-secondary: #22d3ee;
     --accent-gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #22d3ee 100%);
-    
+
     --text-primary: #f4f4f5;
     --text-secondary: #a1a1aa;
     --text-muted: #71717a;
-    
+
     --border-color: rgba(255, 255, 255, 0.08);
     --border-glow: rgba(99, 102, 241, 0.4);
-    
+
     --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
     --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.4);
     --shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.5);
     --shadow-glow: 0 0 30px rgba(99, 102, 241, 0.3);
-    
+
     --radius-sm: 8px;
     --radius-md: 12px;
     --radius-lg: 16px;
     --radius-xl: 24px;
-    
+
     --transition-fast: 150ms ease;
     --transition-normal: 250ms ease;
     --transition-slow: 400ms ease;
 }
 
 /* Reset & Base */
-*, *::before, *::after {
+*,
+*::before,
+*::after {
     box-sizing: border-box;
     margin: 0;
     padding: 0;
@@ -66,7 +68,7 @@ body::before {
     left: 0;
     right: 0;
     bottom: 0;
-    background: 
+    background:
         radial-gradient(ellipse at top left, rgba(99, 102, 241, 0.15) 0%, transparent 50%),
         radial-gradient(ellipse at bottom right, rgba(34, 211, 238, 0.1) 0%, transparent 50%);
     pointer-events: none;
@@ -233,7 +235,7 @@ body::before {
     box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2), var(--shadow-md);
 }
 
-.search-input:focus + .search-icon,
+.search-input:focus+.search-icon,
 .spotlight:has(.search-input:focus) .search-icon {
     stroke: var(--accent-primary);
 }
@@ -402,6 +404,28 @@ tbody tr:hover {
     font-size: 0.85rem;
 }
 
+.refresh-status {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    opacity: 0.7;
+}
+
+.refresh-icon {
+    animation: spin 2s linear infinite;
+}
+
+#refreshCountdown {
+    color: var(--accent-secondary);
+    font-weight: 600;
+    min-width: 20px;
+    display: inline-block;
+}
+
 /* =============================================
    UTILITY CLASSES
    ============================================= */
@@ -417,6 +441,7 @@ tbody tr:hover {
         opacity: 0;
         transform: translateY(-20px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -428,6 +453,7 @@ tbody tr:hover {
         opacity: 0;
         transform: translateY(20px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -441,8 +467,13 @@ tbody tr:hover {
 }
 
 @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
 }
 
 /* Row animation */
@@ -457,40 +488,41 @@ tbody tr {
     .container {
         padding: 1.5rem 1rem;
     }
-    
+
     .logo h1 {
         font-size: 1.5rem;
     }
-    
+
     .logo-icon {
         width: 40px;
         height: 40px;
         font-size: 1.25rem;
     }
-    
+
     .tagline {
         font-size: 0.85rem;
     }
-    
+
     .toggle-container {
         gap: 0.5rem;
     }
-    
+
     .toggle-btn {
         padding: 0.75rem 1.25rem;
         font-size: 0.8rem;
     }
-    
+
     .search-input {
         font-size: 1rem;
         padding: 1rem 1rem 1rem 3rem;
     }
-    
+
     .search-hint {
         display: none;
     }
-    
-    th, td {
+
+    th,
+    td {
         padding: 0.75rem;
         font-size: 0.8rem;
     }
@@ -500,7 +532,7 @@ tbody tr {
     .toggle-btn {
         padding: 0.625rem 1rem;
     }
-    
+
     .toggle-icon {
         width: 16px;
         height: 16px;
