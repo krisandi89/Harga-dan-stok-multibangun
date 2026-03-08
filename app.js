@@ -188,9 +188,17 @@ function escapeRegex(string) {
 function showLoading(show) {
     state.isLoading = show;
     elements.loadingIndicator.classList.toggle('hidden', !show);
-    elements.emptyState.classList.add('hidden');
-    elements.noResults.classList.add('hidden');
-    elements.resultsTable.classList.add('hidden');
+
+    if (show) {
+        elements.emptyState.classList.add('hidden');
+        elements.noResults.classList.add('hidden');
+        elements.resultsTable.classList.add('hidden');
+    } else {
+        // If query is empty, show empty state after loading
+        if (!elements.searchInput.value.trim()) {
+            elements.emptyState.classList.remove('hidden');
+        }
+    }
 }
 
 function showEmptyState() {
@@ -214,16 +222,11 @@ function showResults(results, query) {
     let displayHeaders = headers;
     let processedResults = results;
 
-    // Custom header mapping for STOK mode
     if (mode === 'stok') {
-        // Define the columns we want to show for STOK (including Brand)
         displayHeaders = ['Brand', 'Material', 'Dimensi Roll', 'Saldo', 'Keterangan', 'Gudang'];
 
-        // Process results to combine Saldo with unit column
         processedResults = results.map(row => {
-            // Find the unit column (column after Saldo, typically empty header or specific name)
             const saldoValue = row['Saldo'] || '';
-            // Look for unit in the 5th column (index after Saldo)
             const unitKey = Object.keys(row).find(key => key === '' || key.match(/^(pcs|m2|m'|m|batang|roll)$/i));
             const unit = unitKey ? row[unitKey] : '';
 
@@ -234,14 +237,12 @@ function showResults(results, query) {
         });
     }
 
-    // Build table header
     elements.tableHeader.innerHTML = `
         <tr>
             ${displayHeaders.map(h => `<th>${h}</th>`).join('')}
         </tr>
     `;
 
-    // Build table body with highlighted text
     elements.tableBody.innerHTML = processedResults.map(row => `
         <tr>
             ${displayHeaders.map(h => `<td>${highlightText(row[h] || '-', query)}</td>`).join('')}
@@ -257,11 +258,13 @@ function showResults(results, query) {
 }
 
 function updateModeDisplay() {
-    elements.currentMode.textContent = state.currentMode.toUpperCase();
-    elements.searchInput.placeholder =
-        state.currentMode === 'harga'
-            ? 'Ketik untuk mencari harga... (contoh: SS30)'
-            : 'Ketik untuk mencari stok... (contoh: SS30)';
+    if (elements.currentMode) {
+        elements.currentMode.textContent = state.currentMode.toUpperCase();
+    }
+    // Set placeholder according to the new design
+    elements.searchInput.placeholder = state.currentMode === 'harga'
+        ? "Cari harga..."
+        : "Cari stok...";
 }
 
 // =============================================
@@ -436,4 +439,14 @@ async function init() {
 }
 
 // Start the app
-document.addEventListener('DOMContentLoaded', init);
+document.addEventListener('DOMContentLoaded', () => {
+    init();
+
+    // Global keyboard shortcut for search (Cmd+K or Ctrl+K)
+    document.addEventListener('keydown', (e) => {
+        if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+            e.preventDefault();
+            elements.searchInput.focus();
+        }
+    });
+});

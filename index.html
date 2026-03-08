@@ -4,11 +4,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Multibangun - Harga & Stok Material</title>
-    <meta name="description" content="Dashboard pencarian harga dan stok material Multibangun">
+    <title>Multibangun MaterialHub</title>
+    <meta name="description" content="Pusat pencarian harga dan stok material Multibangun">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
 </head>
 
@@ -16,11 +16,8 @@
     <div class="container">
         <!-- Header -->
         <header class="header">
-            <div class="logo">
-                <div class="logo-icon">M</div>
-                <h1>Multibangun</h1>
-            </div>
-            <p class="tagline">Sistem Pencarian Harga & Stok Material</p>
+            <h1>Multibangun <span class="text-accent">MaterialHub</span></h1>
+            <p class="tagline">Pusat data harga dan ketersediaan stok material</p>
         </header>
 
         <!-- Toggle Buttons -->
@@ -29,7 +26,7 @@
                 <svg class="toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
                 </svg>
-                HARGA
+                Harga
             </button>
             <button class="toggle-btn" data-mode="stok">
                 <svg class="toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -38,21 +35,21 @@
                     <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
                     <line x1="12" y1="22.08" x2="12" y2="12" />
                 </svg>
-                STOK
+                Stok
             </button>
         </div>
 
         <!-- Spotlight Search -->
         <div class="spotlight-container">
             <div class="spotlight">
-                <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="#a1a1aa" stroke-width="2">
                     <circle cx="11" cy="11" r="8" />
                     <path d="m21 21-4.35-4.35" />
                 </svg>
                 <input type="text" id="searchInput" class="search-input"
-                    placeholder="Ketik untuk mencari... (contoh: SS30)" autocomplete="off">
-                <div class="search-hint">
-                    <kbd>Mode:</kbd> <span id="currentMode">HARGA</span>
+                    placeholder="Cari produk, brosur, atau spesifikasi..." autocomplete="off">
+                <div class="search-hint-kbd">
+                    <kbd>⌘ K</kbd>
                 </div>
             </div>
         </div>
@@ -65,11 +62,17 @@
             </div>
 
             <div id="emptyState" class="empty-state">
-                <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                    <circle cx="11" cy="11" r="8" />
-                    <path d="m21 21-4.35-4.35" />
-                </svg>
-                <p>Mulai ketik untuk mencari material</p>
+                <div class="big-search-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8" />
+                        <path d="m21 21-4.35-4.35" />
+                    </svg>
+                </div>
+                <h2>Mulai Pencarian</h2>
+
+                <div class="footer-hint">
+                    <kbd>Ctrl</kbd> + <kbd>K</kbd> <span>untuk fokus ke pencarian</span>
+                </div>
             </div>
 
             <div id="noResults" class="no-results hidden">
@@ -98,18 +101,12 @@
             </div>
         </div>
 
-        <!-- Footer -->
-        <footer class="footer">
-            <p>© 2025 Krisandi.</p>
-            <p class="refresh-status">
-                <svg class="refresh-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                    width="14" height="14">
-                    <path d="M23 4v6h-6M1 20v-6h6" />
-                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-                </svg>
-                Auto-refresh dalam <span id="refreshCountdown">30</span> detik
-            </p>
-        </footer>
+    </div>
+
+    <!-- Hidden elements to keep app.js happy without major modifications -->
+    <div style="display: none;">
+        <span id="currentMode">HARGA</span>
+        <span id="refreshCountdown">30</span>
     </div>
 
     <!-- Papa Parse for CSV parsing -->
