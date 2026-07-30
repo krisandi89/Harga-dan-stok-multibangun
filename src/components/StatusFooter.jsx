@@ -1,12 +1,10 @@
 import React from 'react';
-import { RefreshCw, Lock } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 
 export default function StatusFooter({
   countdown,
   onRefresh,
-  isRefreshing,
-  onOpenPasswordModal,
-  hasPassword
+  isRefreshing
 }) {
   return (
     <footer className="status-footer">
@@ -15,15 +13,6 @@ export default function StatusFooter({
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-        <button
-          className="refresh-btn"
-          onClick={onOpenPasswordModal}
-          title="Atur Password Backend"
-        >
-          <Lock size={14} />
-          {hasPassword ? 'Password Set' : 'Password Backend'}
-        </button>
-
         <button
           className={`refresh-btn ${isRefreshing ? 'spinning' : ''}`}
           onClick={onRefresh}

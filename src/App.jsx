@@ -4,7 +4,6 @@ import ModeToggle from './components/ModeToggle';
 import SearchBar from './components/SearchBar';
 import ResultsTable from './components/ResultsTable';
 import StatusFooter from './components/StatusFooter';
-import PasswordModal from './components/PasswordModal';
 import LoginScreen from './components/LoginScreen';
 
 const AUTO_REFRESH_SECONDS = 30;
@@ -18,7 +17,6 @@ export default function App() {
 
   const [currentMode, setCurrentMode] = useState('harga'); // 'harga' | 'stok'
   const [query, setQuery] = useState('');
-  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
 
   const [data, setData] = useState({ harga: [], stok: [] });
   const [headers, setHeaders] = useState({ harga: [], stok: [] });
@@ -59,7 +57,6 @@ export default function App() {
       return true;
     } catch (err) {
       console.error(`Gagal memuat data ${modeToFetch}:`, err);
-      // If client password matched default password or saved session, keep authenticated & show error inside table if network fails
       if (pass === DEFAULT_PASSWORD || sessionStorage.getItem('mb_auth_password')) {
         setIsAuthenticated(true);
         setAuthError('');
@@ -78,9 +75,7 @@ export default function App() {
     setAuthError('');
     setIsSubmitting(true);
 
-    // Client-side quick validation against default/session password
     if (enteredPassword !== DEFAULT_PASSWORD && sessionStorage.getItem('mb_auth_password') && enteredPassword !== sessionStorage.getItem('mb_auth_password')) {
-      // Try API check first
       const success = await fetchData(currentMode, enteredPassword, false);
       setIsSubmitting(false);
       if (success) {
@@ -92,7 +87,6 @@ export default function App() {
       return;
     }
 
-    // Password matches default password (multibangun123)
     setPassword(enteredPassword);
     sessionStorage.setItem('mb_auth_password', enteredPassword);
     setIsAuthenticated(true);
@@ -150,17 +144,6 @@ export default function App() {
     setCountdown(AUTO_REFRESH_SECONDS);
   };
 
-  // Save password from footer modal
-  const handleSavePassword = (newPass) => {
-    setPassword(newPass);
-    if (newPass) {
-      sessionStorage.setItem('mb_auth_password', newPass);
-    } else {
-      sessionStorage.removeItem('mb_auth_password');
-    }
-    fetchData(currentMode, newPass, true);
-  };
-
   // Render Login Screen if not authenticated
   if (!isAuthenticated) {
     return <LoginScreen onLogin={handleLogin} error={authError} isSubmitting={isSubmitting} />;
@@ -186,15 +169,6 @@ export default function App() {
         countdown={countdown}
         onRefresh={handleManualRefresh}
         isRefreshing={isRefreshing}
-        onOpenPasswordModal={() => setIsPasswordModalOpen(true)}
-        hasPassword={Boolean(password)}
-      />
-
-      <PasswordModal
-        isOpen={isPasswordModalOpen}
-        onClose={() => setIsPasswordModalOpen(false)}
-        onSave={handleSavePassword}
-        currentPassword={password}
       />
     </div>
   );

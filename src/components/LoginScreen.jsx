@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Lock, Building2, KeyRound, AlertCircle, ArrowRight } from 'lucide-react';
+import { Building2, KeyRound, AlertCircle, ArrowRight } from 'lucide-react';
 
 export default function LoginScreen({ onLogin, error, isSubmitting }) {
   const [password, setPassword] = useState('');
@@ -57,11 +57,6 @@ export default function LoginScreen({ onLogin, error, isSubmitting }) {
             )}
           </button>
         </form>
-
-        <div className="login-footer-note">
-          <Lock size={14} />
-          <span>Password Bawaan: <strong>multibangun123</strong></span>
-        </div>
       </div>
     </div>
   );
