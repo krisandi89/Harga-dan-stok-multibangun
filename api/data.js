@@ -7,8 +7,8 @@ const DEFAULT_SHEETS = {
 
 const DEFAULT_PASSWORD = 'multibangun123';
 
-// Pure JS CSV Parser for Node.js Serverless Function
-function parseCsv(csvText, isStokMode = false) {
+// Pure JS CSV Parser returning array of rows (prevents duplicate header key collisions)
+function parseCsvToRows(csvText, isStokMode = false) {
   let lines = csvText.split(/\r?\n/).filter((l) => l.trim() !== '');
 
   if (isStokMode) {
@@ -50,11 +50,9 @@ function parseCsv(csvText, isStokMode = false) {
 
   for (let i = 1; i < lines.length; i++) {
     const values = parseLine(lines[i]);
-    const row = {};
-    headers.forEach((h, idx) => {
-      row[h] = values[idx] !== undefined ? values[idx] : '';
-    });
-    data.push(row);
+    if (values.some((v) => v !== '')) {
+      data.push(values);
+    }
   }
 
   return { headers, data };
@@ -113,7 +111,7 @@ export default async function handler(req, res) {
     }
 
     const csvText = await response.text();
-    const parsed = parseCsv(csvText, mode === 'stok');
+    const parsed = parseCsvToRows(csvText, mode === 'stok');
 
     return res.status(200).json({
       status: 'success',

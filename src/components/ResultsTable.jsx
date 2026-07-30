@@ -57,12 +57,15 @@ export default function ResultsTable({
 
   const searchTerm = query.toLowerCase().trim();
 
-  // Filter rows matching search query across all values
-  const filteredData = data.filter((row) =>
-    Object.values(row).some(
+  // Filter rows matching search query across all cells in array or object
+  const filteredData = data.filter((row) => {
+    if (Array.isArray(row)) {
+      return row.some((cell) => cell !== null && cell !== undefined && String(cell).toLowerCase().includes(searchTerm));
+    }
+    return Object.values(row).some(
       (val) => val !== null && val !== undefined && String(val).toLowerCase().includes(searchTerm)
-    )
-  );
+    );
+  });
 
   if (filteredData.length === 0) {
     return (
@@ -77,21 +80,42 @@ export default function ResultsTable({
 
   // Format headers & display logic
   let displayHeaders = headers;
-  let processedData = filteredData;
+  let processedData = [];
 
-  if (currentMode === 'stok') {
-    displayHeaders = ['Brand', 'Material', 'Dimensi Roll', 'Saldo', 'Keterangan', 'Gudang'];
+  if (currentMode === 'harga') {
+    // Array-based cell row format ensures duplicate "Konversi" headers get exact column values
     processedData = filteredData.map((row) => {
+      if (Array.isArray(row)) return row;
+      // Fallback for object format
+      return headers.map((h) => row[h] || '');
+    });
+  } else if (currentMode === 'stok') {
+    displayHeaders = ['Brand', 'Material', 'Dimensi Roll', 'Saldo', 'Keterangan', 'Gudang'];
+    
+    processedData = filteredData.map((row) => {
+      if (Array.isArray(row)) {
+        const brand = row[0] || '-';
+        const material = row[1] || '-';
+        const dimensi = row[2] || '-';
+        const saldoValue = row[3] || '';
+        const unit = row[4] || '';
+        const saldoFormatted = unit ? `${saldoValue} ${unit}` : (saldoValue || '-');
+        const keterangan = row[5] || '-';
+        const gudang = row[6] || '-';
+        return [brand, material, dimensi, saldoFormatted, keterangan, gudang];
+      }
+      // Object fallback
       const saldoValue = row['Saldo'] || '';
-      const unitKey = Object.keys(row).find(
-        (key) => key === '' || key.match(/^(pcs|m2|m'|m|batang|roll)$/i)
-      );
+      const unitKey = Object.keys(row).find((key) => key === '' || key.match(/^(pcs|m2|m'|m|batang|roll)$/i));
       const unit = unitKey ? row[unitKey] : '';
-
-      return {
-        ...row,
-        Saldo: unit ? `${saldoValue} ${unit}` : saldoValue
-      };
+      return [
+        row['Brand'] || '-',
+        row['Material'] || '-',
+        row['Dimensi Roll'] || '-',
+        unit ? `${saldoValue} ${unit}` : (saldoValue || '-'),
+        row['Keterangan'] || '-',
+        row['Gudang'] || '-'
+      ];
     });
   }
 
@@ -107,10 +131,10 @@ export default function ResultsTable({
             </tr>
           </thead>
           <tbody>
-            {processedData.map((row, rIdx) => (
+            {processedData.map((rowCells, rIdx) => (
               <tr key={rIdx}>
-                {displayHeaders.map((h, cIdx) => (
-                  <td key={cIdx}>{renderHighlightedText(row[h], query)}</td>
+                {rowCells.map((cellValue, cIdx) => (
+                  <td key={cIdx}>{renderHighlightedText(cellValue, query)}</td>
                 ))}
               </tr>
             ))}
