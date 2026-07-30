@@ -7,55 +7,64 @@ const DEFAULT_SHEETS = {
 
 const DEFAULT_PASSWORD = 'multibangun123';
 
-// Pure JS CSV Parser returning array of rows (prevents duplicate header key collisions)
-function parseCsvToRows(csvText, isStokMode = false) {
-  let lines = csvText.split(/\r?\n/).filter((l) => l.trim() !== '');
+// Multiline-aware CSV Parser: Preserves cell line-breaks (e.g. multiline Keterangan)
+function parseCsvFull(csvText, isStokMode = false) {
+  const rows = [];
+  let curCell = '';
+  let curRow = [];
+  let inQuotes = false;
+
+  for (let i = 0; i < csvText.length; i++) {
+    const char = csvText[i];
+    const nextChar = csvText[i + 1];
+
+    if (char === '"') {
+      if (inQuotes && nextChar === '"') {
+        curCell += '"';
+        i++; // skip escaped quote
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (char === ',' && !inQuotes) {
+      curRow.push(curCell.trim());
+      curCell = '';
+    } else if ((char === '\r' || char === '\n') && !inQuotes) {
+      if (char === '\r' && nextChar === '\n') i++; // skip \r\n
+      curRow.push(curCell.trim());
+      if (curRow.some((c) => c !== '')) {
+        rows.push(curRow);
+      }
+      curRow = [];
+      curCell = '';
+    } else {
+      curCell += char;
+    }
+  }
+
+  if (curCell || curRow.length > 0) {
+    curRow.push(curCell.trim());
+    if (curRow.some((c) => c !== '')) {
+      rows.push(curRow);
+    }
+  }
 
   if (isStokMode) {
-    let headerIndex = -1;
-    for (let i = 0; i < lines.length; i++) {
-      if (lines[i].startsWith('Brand,')) {
-        headerIndex = i;
+    let headerIdx = -1;
+    for (let i = 0; i < rows.length; i++) {
+      if (rows[i][0] === 'Brand') {
+        headerIdx = i;
         break;
       }
     }
-    if (headerIndex !== -1) {
-      lines = lines.slice(headerIndex);
+    if (headerIdx !== -1) {
+      const headers = rows[headerIdx];
+      const data = rows.slice(headerIdx + 1);
+      return { headers, data };
     }
   }
 
-  if (lines.length === 0) return { headers: [], data: [] };
-
-  const parseLine = (line) => {
-    const result = [];
-    let cur = '';
-    let inQuotes = false;
-    for (let i = 0; i < line.length; i++) {
-      const c = line[i];
-      if (c === '"') {
-        inQuotes = !inQuotes;
-      } else if (c === ',' && !inQuotes) {
-        result.push(cur.replace(/^"|"$/g, '').trim());
-        cur = '';
-      } else {
-        cur += c;
-      }
-    }
-    result.push(cur.replace(/^"|"$/g, '').trim());
-    return result;
-  };
-
-  const headers = parseLine(lines[0]);
-  const data = [];
-
-  for (let i = 1; i < lines.length; i++) {
-    const values = parseLine(lines[i]);
-    if (values.some((v) => v !== '')) {
-      data.push(values);
-    }
-  }
-
-  return { headers, data };
+  if (rows.length === 0) return { headers: [], data: [] };
+  return { headers: rows[0], data: rows.slice(1) };
 }
 
 export default async function handler(req, res) {
@@ -111,7 +120,7 @@ export default async function handler(req, res) {
     }
 
     const csvText = await response.text();
-    const parsed = parseCsvToRows(csvText, mode === 'stok');
+    const parsed = parseCsvFull(csvText, mode === 'stok');
 
     return res.status(200).json({
       status: 'success',
