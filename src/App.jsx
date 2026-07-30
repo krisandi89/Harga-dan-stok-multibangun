@@ -13,6 +13,7 @@ export default function App() {
   const [password, setPassword] = useState(() => sessionStorage.getItem('mb_auth_password') || '');
   const [isAuthenticated, setIsAuthenticated] = useState(() => Boolean(sessionStorage.getItem('mb_auth_password')));
   const [authError, setAuthError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [currentMode, setCurrentMode] = useState('harga'); // 'harga' | 'stok'
   const [query, setQuery] = useState('');
@@ -38,7 +39,7 @@ export default function App() {
 
       if (res.status === 401) {
         setIsAuthenticated(false);
-        setAuthError('Password salah atau tidak valid. Silakan coba lagi.');
+        setAuthError('Password salah. Silakan coba lagi.');
         sessionStorage.removeItem('mb_auth_password');
         return false;
       }
@@ -57,6 +58,8 @@ export default function App() {
       return true;
     } catch (err) {
       console.error(`Gagal memuat data ${modeToFetch}:`, err);
+      setIsAuthenticated(false);
+      setAuthError('Password salah atau gagal terhubung ke server.');
       return false;
     } finally {
       setIsLoading(false);
@@ -67,7 +70,10 @@ export default function App() {
   // Handle User Login
   const handleLogin = async (enteredPassword) => {
     setAuthError('');
+    setIsSubmitting(true);
     const success = await fetchData(currentMode, enteredPassword, false);
+    setIsSubmitting(false);
+
     if (success) {
       setPassword(enteredPassword);
       sessionStorage.setItem('mb_auth_password', enteredPassword);
@@ -135,7 +141,7 @@ export default function App() {
 
   // Render Login Screen if not authenticated
   if (!isAuthenticated) {
-    return <LoginScreen onLogin={handleLogin} error={authError} />;
+    return <LoginScreen onLogin={handleLogin} error={authError} isSubmitting={isSubmitting} />;
   }
 
   return (

@@ -1,16 +1,67 @@
-import Papa from 'papaparse';
+// Vercel Serverless Function Proxy (/api/data.js)
 
-// Direct fallback Google Sheets URLs (Shielded from client-side browser visibility!)
 const DEFAULT_SHEETS = {
   harga: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTpP3VHWDYD_sju_TrkIIvOQm_PoTbfQX8mMvm6HkcrsJ56cAQjP229Quz9Y_0hpaLwktjE5w8RBJzK/pub?gid=0&single=true&output=csv',
   stok: 'https://docs.google.com/spreadsheets/d/1YEu-awdBQxR1zOwSUZwDYkv_t3YFSzZ4srIeGCxW5zc/export?format=csv&gid=0'
 };
 
-// Default master password if no Environment Variable is set in Vercel
 const DEFAULT_PASSWORD = 'multibangun123';
 
+// Pure JS CSV Parser for Node.js Serverless Function
+function parseCsv(csvText, isStokMode = false) {
+  let lines = csvText.split(/\r?\n/).filter((l) => l.trim() !== '');
+
+  if (isStokMode) {
+    let headerIndex = -1;
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].startsWith('Brand,')) {
+        headerIndex = i;
+        break;
+      }
+    }
+    if (headerIndex !== -1) {
+      lines = lines.slice(headerIndex);
+    }
+  }
+
+  if (lines.length === 0) return { headers: [], data: [] };
+
+  const parseLine = (line) => {
+    const result = [];
+    let cur = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (c === '"') {
+        inQuotes = !inQuotes;
+      } else if (c === ',' && !inQuotes) {
+        result.push(cur.replace(/^"|"$/g, '').trim());
+        cur = '';
+      } else {
+        cur += c;
+      }
+    }
+    result.push(cur.replace(/^"|"$/g, '').trim());
+    return result;
+  };
+
+  const headers = parseLine(lines[0]);
+  const data = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const values = parseLine(lines[i]);
+    const row = {};
+    headers.forEach((h, idx) => {
+      row[h] = values[idx] !== undefined ? values[idx] : '';
+    });
+    data.push(row);
+  }
+
+  return { headers, data };
+}
+
 export default async function handler(req, res) {
-  // Enable CORS for Vercel deployment
+  // CORS Headers
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -26,19 +77,18 @@ export default async function handler(req, res) {
 
   const { mode = 'harga', password = '' } = req.query;
 
-  // Password verification: checks Vercel ENV VAR first, falls back to DEFAULT_PASSWORD
+  // Password verification
   const REQUIRED_PASSWORD = process.env.APP_PASSWORD || process.env.BACKEND_PASSWORD || DEFAULT_PASSWORD;
 
   if (password !== REQUIRED_PASSWORD) {
     return res.status(401).json({ error: 'Unauthorized: Password salah atau tidak valid.' });
   }
 
-  // Check if custom GAS_WEBAPP_URL is set in Vercel environment variables
+  // GAS WebApp URL option
   const GAS_URL = process.env.GAS_WEBAPP_URL;
 
   try {
     if (GAS_URL) {
-      // Fetch from deployed Google Apps Script Web App
       const targetUrl = new URL(GAS_URL);
       targetUrl.searchParams.append('mode', mode);
       if (password) targetUrl.searchParams.append('password', password);
@@ -54,7 +104,7 @@ export default async function handler(req, res) {
       return res.status(200).json(json);
     }
 
-    // Direct server-side fetch (Fallback: hides Sheet URL from user browser)
+    // Direct server-side fetch from Google Sheets
     const csvUrl = DEFAULT_SHEETS[mode] || DEFAULT_SHEETS.harga;
     const response = await fetch(csvUrl);
 
@@ -63,35 +113,12 @@ export default async function handler(req, res) {
     }
 
     const csvText = await response.text();
-    let cleanedCsv = csvText;
-
-    // For STOK mode, parse starting from header row 'Brand'
-    if (mode === 'stok') {
-      const lines = csvText.split('\n');
-      let headerIndex = -1;
-
-      for (let i = 0; i < lines.length; i++) {
-        if (lines[i].startsWith('Brand,')) {
-          headerIndex = i;
-          break;
-        }
-      }
-
-      if (headerIndex !== -1) {
-        cleanedCsv = lines.slice(headerIndex).join('\n');
-      }
-    }
-
-    const parsed = Papa.parse(cleanedCsv, {
-      header: true,
-      skipEmptyLines: true,
-      transformHeader: (header) => header.trim()
-    });
+    const parsed = parseCsv(csvText, mode === 'stok');
 
     return res.status(200).json({
       status: 'success',
       mode,
-      headers: parsed.meta.fields || [],
+      headers: parsed.headers,
       data: parsed.data,
       timestamp: new Date().toISOString()
     });

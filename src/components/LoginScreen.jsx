@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { Lock, Building2, KeyRound, AlertCircle, ArrowRight } from 'lucide-react';
 
-export default function LoginScreen({ onLogin, error }) {
+export default function LoginScreen({ onLogin, error, isSubmitting }) {
   const [password, setPassword] = useState('');
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!password.trim()) return;
+    if (!password.trim() || isSubmitting) return;
     onLogin(password.trim());
   };
 
@@ -37,14 +37,24 @@ export default function LoginScreen({ onLogin, error }) {
               placeholder="Masukkan Password..."
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              disabled={isSubmitting}
               autoFocus
               required
             />
           </div>
 
-          <button type="submit" className="login-submit-btn">
-            <span>Masuk ke Dashboard</span>
-            <ArrowRight size={18} />
+          <button type="submit" className="login-submit-btn" disabled={isSubmitting}>
+            {isSubmitting ? (
+              <>
+                <div className="spinner" style={{ width: 18, height: 18, borderWidth: 2 }} />
+                <span>Memverifikasi...</span>
+              </>
+            ) : (
+              <>
+                <span>Masuk ke Dashboard</span>
+                <ArrowRight size={18} />
+              </>
+            )}
           </button>
         </form>
 
