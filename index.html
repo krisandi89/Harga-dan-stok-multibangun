@@ -1,117 +1,17 @@
 <!DOCTYPE html>
 <html lang="id">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Multibangun MaterialHub</title>
-    <meta name="description" content="Pusat pencarian harga dan stok material Multibangun">
+    <meta name="description" content="Pusat pencarian harga dan stok material Multibangun" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css">
-</head>
-
-<body>
-    <div class="container">
-        <!-- Header -->
-        <header class="header">
-            <h1>Multibangun <span class="text-accent">MaterialHub</span></h1>
-            <p class="tagline">Pusat data harga dan ketersediaan stok material</p>
-        </header>
-
-        <!-- Toggle Buttons -->
-        <div class="toggle-container">
-            <button class="toggle-btn active" data-mode="harga">
-                <svg class="toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-                </svg>
-                Harga
-            </button>
-            <button class="toggle-btn" data-mode="stok">
-                <svg class="toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path
-                        d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-                    <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
-                    <line x1="12" y1="22.08" x2="12" y2="12" />
-                </svg>
-                Stok
-            </button>
-        </div>
-
-        <!-- Spotlight Search -->
-        <div class="spotlight-container">
-            <div class="spotlight">
-                <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="#a1a1aa" stroke-width="2">
-                    <circle cx="11" cy="11" r="8" />
-                    <path d="m21 21-4.35-4.35" />
-                </svg>
-                <input type="text" id="searchInput" class="search-input"
-                    placeholder="Cari produk, brosur, atau spesifikasi..." autocomplete="off">
-                <div class="search-hint-kbd">
-                    <kbd>⌘ K</kbd>
-                </div>
-            </div>
-        </div>
-
-        <!-- Results Area -->
-        <div class="results-container">
-            <div id="loadingIndicator" class="loading hidden">
-                <div class="spinner"></div>
-                <span>Memuat data...</span>
-            </div>
-
-            <div id="emptyState" class="empty-state">
-                <div class="big-search-icon">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="11" cy="11" r="8" />
-                        <path d="m21 21-4.35-4.35" />
-                    </svg>
-                </div>
-                <h2>Mulai Pencarian</h2>
-
-                <div class="footer-hint">
-                    <kbd>Ctrl</kbd> + <kbd>K</kbd> <span>untuk fokus ke pencarian</span>
-                </div>
-            </div>
-
-            <div id="noResults" class="no-results hidden">
-                <svg class="no-results-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                    <circle cx="12" cy="12" r="10" />
-                    <line x1="15" y1="9" x2="9" y2="15" />
-                    <line x1="9" y1="9" x2="15" y2="15" />
-                </svg>
-                <p>Tidak ditemukan hasil untuk "<span id="searchQuery"></span>"</p>
-            </div>
-
-            <div id="resultsTable" class="results-table hidden">
-                <div class="table-wrapper">
-                    <table>
-                        <thead id="tableHeader">
-                            <!-- Dynamic headers -->
-                        </thead>
-                        <tbody id="tableBody">
-                            <!-- Dynamic rows -->
-                        </tbody>
-                    </table>
-                </div>
-                <div class="results-count">
-                    <span id="resultsCount">0</span> hasil ditemukan
-                </div>
-            </div>
-        </div>
-
-    </div>
-
-    <!-- Hidden elements to keep app.js happy without major modifications -->
-    <div style="display: none;">
-        <span id="currentMode">HARGA</span>
-        <span id="refreshCountdown">30</span>
-    </div>
-
-    <!-- Papa Parse for CSV parsing -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-    <script src="app.js"></script>
-</body>
-
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
 </html>
