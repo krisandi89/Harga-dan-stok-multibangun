@@ -8,7 +8,12 @@ export default function ResultsTable({
   query,
   currentMode
 }) {
-  const [viewLayout, setViewLayout] = useState('table'); // 'table' | 'cards'
+  const [viewLayout, setViewLayout] = useState(() => {
+    if (typeof window !== 'undefined' && window.innerWidth <= 768) {
+      return 'cards';
+    }
+    return 'table';
+  });
 
   // Helper to escape regex special chars
   const escapeRegex = (string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

@@ -18,15 +18,17 @@
   --radius-sm: 8px;
 }
 
-* {
+*, *::before, *::after {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
-html, body {
-  overflow-x: hidden;
+html {
   width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
@@ -37,20 +39,34 @@ body {
     radial-gradient(at 100% 100%, rgba(139, 92, 246, 0.08) 0px, transparent 50%);
   color: var(--text-main);
   min-height: 100vh;
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
   padding: 2rem 1.5rem;
   display: flex;
   justify-content: center;
   align-items: flex-start;
   line-height: 1.5;
+  position: relative;
+}
+
+#root {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  display: flex;
+  justify-content: center;
 }
 
 /* App Container - Expanded for desktop comfort (90% use case) */
 .app-container {
   width: 100%;
   max-width: 1200px;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  overflow-x: hidden;
 }
 
 /* Header */
@@ -649,8 +665,12 @@ tr:hover td {
   }
 
   .results-container {
-    padding: 0.85rem 0.5rem;
-    overflow: visible;
+    padding: 0.85rem 0.6rem;
+    overflow: hidden !important;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
   }
 
   .results-header-tools {
@@ -684,17 +704,20 @@ tr:hover td {
   }
   
   /* STICKY FIRST COLUMN & FULL HORIZONTAL SCROLL FOR MOBILE PORTRAIT
-     Ensures table can be swiped ALL THE WAY to the last rightmost column without clipping */
+     Isolated inside .table-wrapper without leaking page width */
   .table-wrapper {
-    overflow-x: auto;
+    overflow-x: auto !important;
     -webkit-overflow-scrolling: touch;
     width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    display: block;
     padding-bottom: 0.5rem;
   }
 
   .table-wrapper table {
     width: max-content;
-    min-width: 880px; /* Gives enough width for all columns (Brand, Ukuran, Volume, Harga Satuan, Konversi, IDR, Stok, Gudang) */
+    min-width: 720px;
   }
 
   .table-wrapper th,
