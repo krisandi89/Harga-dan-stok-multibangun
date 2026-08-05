@@ -9,5 +9,10 @@ Thumbs.db
 .vscode/
 .idea/
 
+# Build output
+dist/
+dist-ssr/
+
 # Logs
 *.log
+

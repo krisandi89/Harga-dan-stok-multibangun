@@ -1,14 +1,15 @@
 /* Modern Design System for Multibangun MaterialHub */
 :root {
   --bg-primary: #090d16;
-  --bg-card: rgba(22, 28, 45, 0.7);
-  --bg-card-border: rgba(255, 255, 255, 0.08);
+  --bg-card: rgba(22, 28, 45, 0.85);
+  --bg-card-solid: #131929;
+  --bg-card-border: rgba(255, 255, 255, 0.1);
   --accent-primary: #3b82f6;
   --accent-glow: rgba(59, 130, 246, 0.35);
   --text-main: #f3f4f6;
   --text-muted: #9ca3af;
   --text-dim: #6b7280;
-  --border-light: rgba(255, 255, 255, 0.1);
+  --border-light: rgba(255, 255, 255, 0.12);
   --highlight-bg: rgba(234, 179, 8, 0.25);
   --highlight-color: #fde047;
   --font-family: 'Inter', system-ui, -apple-system, sans-serif;
@@ -23,6 +24,11 @@
   box-sizing: border-box;
 }
 
+html, body {
+  overflow-x: hidden;
+  width: 100%;
+}
+
 body {
   font-family: var(--font-family);
   background-color: var(--bg-primary);
@@ -31,16 +37,17 @@ body {
     radial-gradient(at 100% 100%, rgba(139, 92, 246, 0.08) 0px, transparent 50%);
   color: var(--text-main);
   min-height: 100vh;
-  padding: 2rem 1rem;
+  padding: 2rem 1.5rem;
   display: flex;
   justify-content: center;
   align-items: flex-start;
   line-height: 1.5;
 }
 
+/* App Container - Expanded for desktop comfort (90% use case) */
 .app-container {
   width: 100%;
-  max-width: 1000px;
+  max-width: 1200px;
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
@@ -54,6 +61,7 @@ body {
   justify-content: center;
   position: relative;
   margin-bottom: 0.5rem;
+  width: 100%;
 }
 
 .header-top-bar {
@@ -61,13 +69,14 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.75rem;
 }
 
 .header h1 {
   font-size: 2.2rem;
   font-weight: 800;
   letter-spacing: -0.025em;
+  text-align: center;
   background: linear-gradient(135deg, #ffffff 30%, #93c5fd 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -82,6 +91,7 @@ body {
   color: var(--text-muted);
   font-size: 0.95rem;
   margin-top: 0.25rem;
+  text-align: center;
 }
 
 .logout-btn {
@@ -91,12 +101,13 @@ body {
   background: rgba(239, 68, 68, 0.15);
   border: 1px solid rgba(239, 68, 68, 0.3);
   color: #f87171;
-  padding: 0.4rem 0.8rem;
+  padding: 0.45rem 0.85rem;
   border-radius: var(--radius-sm);
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
+  white-space: nowrap;
 }
 
 .logout-btn:hover {
@@ -222,17 +233,18 @@ body {
   transform: translateY(-1px);
 }
 
-/* Toggle Switch */
+/* Mode Toggle Switch */
 .toggle-container {
   display: flex;
   justify-content: center;
   gap: 0.5rem;
-  background: rgba(15, 23, 42, 0.6);
+  background: rgba(15, 23, 42, 0.7);
   backdrop-filter: blur(12px);
   padding: 0.4rem;
   border-radius: var(--radius-md);
   border: 1px solid var(--bg-card-border);
-  max-width: 320px;
+  width: 100%;
+  max-width: 340px;
   margin: 0 auto;
 }
 
@@ -242,11 +254,11 @@ body {
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  padding: 0.6rem 1rem;
+  padding: 0.65rem 1.2rem;
   border: none;
   background: transparent;
   color: var(--text-muted);
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   font-weight: 600;
   border-radius: var(--radius-sm);
   cursor: pointer;
@@ -276,7 +288,7 @@ body {
   backdrop-filter: blur(16px);
   border: 1px solid var(--bg-card-border);
   border-radius: var(--radius-lg);
-  padding: 0.85rem 1.25rem;
+  padding: 0.9rem 1.25rem;
   gap: 0.75rem;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
@@ -337,6 +349,7 @@ kbd {
   display: flex;
   flex-direction: column;
   position: relative;
+  width: 100%;
 }
 
 /* Empty & Loading States */
@@ -371,34 +384,57 @@ kbd {
   to { transform: rotate(360deg); }
 }
 
-/* Table Design */
+/* Table Design (Desktop & High-Resolution Displays) */
 .table-wrapper {
   overflow-x: auto;
   border-radius: var(--radius-sm);
+  width: 100%;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Custom Scrollbar for Table Wrapper */
+.table-wrapper::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+
+.table-wrapper::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
+
+.table-wrapper::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+.table-wrapper::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-primary);
 }
 
 table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   text-align: left;
-  font-size: 0.9rem;
+  font-size: 0.92rem;
 }
 
 th {
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(30, 41, 59, 0.85);
   color: var(--text-muted);
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
   font-size: 0.75rem;
   letter-spacing: 0.05em;
-  padding: 0.85rem 1rem;
+  padding: 0.95rem 1.15rem;
   border-bottom: 1px solid var(--border-light);
   white-space: nowrap;
 }
 
 td {
-  padding: 0.9rem 1rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 1rem 1.15rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   color: var(--text-main);
   white-space: pre-wrap;
   vertical-align: top;
@@ -406,15 +442,55 @@ td {
 }
 
 tr:hover td {
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .highlight {
   background-color: var(--highlight-bg);
   color: var(--highlight-color);
-  padding: 0.1rem 0.3rem;
+  padding: 0.1rem 0.35rem;
   border-radius: 4px;
   font-weight: 600;
+}
+
+.mobile-scroll-hint {
+  display: none;
+}
+
+.results-header-tools {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.view-mode-toggle {
+  display: flex;
+  gap: 0.25rem;
+  background: rgba(15, 23, 42, 0.6);
+  padding: 0.25rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--bg-card-border);
+}
+
+.view-mode-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.65rem;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 500;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.view-mode-btn.active {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text-main);
 }
 
 .results-footer {
@@ -422,10 +498,79 @@ tr:hover td {
   justify-content: space-between;
   align-items: center;
   margin-top: 1rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  padding-top: 0.85rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
   font-size: 0.85rem;
   color: var(--text-muted);
+}
+
+/* Mobile Card View Layout */
+.mobile-cards-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+}
+
+.mobile-card {
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: 1rem 1.15rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.mobile-card:hover {
+  border-color: rgba(59, 130, 246, 0.4);
+}
+
+.mobile-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  padding-bottom: 0.5rem;
+}
+
+.mobile-card-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.mobile-card-badge {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.mobile-card-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.88rem;
+  gap: 0.5rem;
+}
+
+.mobile-card-label {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.mobile-card-value {
+  color: var(--text-main);
+  font-weight: 600;
+  text-align: right;
 }
 
 /* Status Bar & Refresh Footer */
@@ -435,7 +580,7 @@ tr:hover td {
   align-items: center;
   font-size: 0.85rem;
   color: var(--text-muted);
-  background: rgba(15, 23, 42, 0.4);
+  background: rgba(15, 23, 42, 0.5);
   padding: 0.75rem 1.25rem;
   border-radius: var(--radius-md);
   border: 1px solid var(--bg-card-border);
@@ -445,46 +590,145 @@ tr:hover td {
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   color: var(--text-main);
-  padding: 0.4rem 0.75rem;
+  padding: 0.45rem 0.85rem;
   border-radius: var(--radius-sm);
   cursor: pointer;
-  font-size: 0.8rem;
+  font-size: 0.82rem;
   font-weight: 500;
   transition: all 0.2s ease;
 }
 
 .refresh-btn:hover {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.15);
 }
 
 .refresh-btn.spinning svg {
   animation: spin 0.8s linear infinite;
 }
 
-/* Mobile Responsiveness */
-@media (max-width: 640px) {
+/* =============================================
+   MOBILE RESPONSIVENESS (< 768px Viewports & Portrait Mode)
+   Does NOT affect Desktop (90% use case)
+   ============================================= */
+@media (max-width: 768px) {
   body {
-    padding: 1rem 0.5rem;
+    padding: 0.75rem 0.4rem;
   }
   
+  .app-container {
+    gap: 0.85rem;
+    width: 100%;
+    max-width: 100%;
+  }
+
   .header h1 {
-    font-size: 1.6rem;
+    font-size: 1.55rem;
+  }
+
+  .tagline {
+    font-size: 0.82rem;
+  }
+  
+  .header-top-bar {
+    margin-bottom: 0.5rem;
   }
   
   .spotlight {
-    padding: 0.75rem 1rem;
+    padding: 0.75rem 0.85rem;
+  }
+  
+  .search-input {
+    font-size: 0.92rem;
   }
   
   .search-hint-kbd {
     display: none;
   }
-  
-  .status-footer {
-    flex-direction: column;
+
+  .results-container {
+    padding: 0.85rem 0.5rem;
+    overflow: visible;
+  }
+
+  .results-header-tools {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
     gap: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .mobile-scroll-hint {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.76rem;
+    font-weight: 500;
+    color: #60a5fa;
+    background: rgba(59, 130, 246, 0.12);
+    border: 1px dashed rgba(59, 130, 246, 0.35);
+    padding: 0.4rem 0.75rem;
+    border-radius: var(--radius-sm);
+    margin-bottom: 0.75rem;
     text-align: center;
   }
+  
+  .status-footer {
+    flex-direction: row;
+    justify-content: space-between;
+    padding: 0.65rem 0.75rem;
+    font-size: 0.78rem;
+  }
+  
+  /* STICKY FIRST COLUMN & FULL HORIZONTAL SCROLL FOR MOBILE PORTRAIT
+     Ensures table can be swiped ALL THE WAY to the last rightmost column without clipping */
+  .table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+    padding-bottom: 0.5rem;
+  }
+
+  .table-wrapper table {
+    width: max-content;
+    min-width: 880px; /* Gives enough width for all columns (Brand, Ukuran, Volume, Harga Satuan, Konversi, IDR, Stok, Gudang) */
+  }
+
+  .table-wrapper th,
+  .table-wrapper td {
+    white-space: nowrap;
+    padding: 0.8rem 0.85rem;
+    font-size: 0.83rem;
+  }
+
+  /* Freeze first column on mobile scroll */
+  .table-wrapper th:first-child,
+  .table-wrapper td:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 10;
+    background-color: #121829 !important;
+    box-shadow: 4px 0 10px rgba(0, 0, 0, 0.6);
+    border-right: 2px solid rgba(59, 130, 246, 0.35);
+    min-width: 105px;
+    max-width: 135px;
+    white-space: normal;
+    word-break: break-word;
+  }
+
+  .table-wrapper th:first-child {
+    z-index: 11;
+    background-color: #1c2538 !important;
+  }
+
+  /* Add padding to last column so last column isn't cut off at the right edge */
+  .table-wrapper th:last-child,
+  .table-wrapper td:last-child {
+    padding-right: 1.25rem;
+  }
 }
+
+

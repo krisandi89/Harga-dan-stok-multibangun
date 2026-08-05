@@ -1,5 +1,5 @@
-import React from 'react';
-import { Search, AlertCircle } from 'lucide-react';
+import React, { useState } from 'react';
+import { Search, AlertCircle, LayoutList, Table } from 'lucide-react';
 
 export default function ResultsTable({
   isLoading,
@@ -8,6 +8,8 @@ export default function ResultsTable({
   query,
   currentMode
 }) {
+  const [viewLayout, setViewLayout] = useState('table'); // 'table' | 'cards'
+
   // Helper to escape regex special chars
   const escapeRegex = (string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -83,10 +85,8 @@ export default function ResultsTable({
   let processedData = [];
 
   if (currentMode === 'harga') {
-    // Array-based cell row format ensures duplicate "Konversi" headers get exact column values
     processedData = filteredData.map((row) => {
       if (Array.isArray(row)) return row;
-      // Fallback for object format
       return headers.map((h) => row[h] || '');
     });
   } else if (currentMode === 'stok') {
@@ -121,30 +121,95 @@ export default function ResultsTable({
 
   return (
     <div className="results-container">
-      <div className="table-wrapper">
-        <table>
-          <thead>
-            <tr>
-              {displayHeaders.map((h, idx) => (
-                <th key={idx}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {processedData.map((rowCells, rIdx) => (
-              <tr key={rIdx}>
-                {rowCells.map((cellValue, cIdx) => (
-                  <td key={cIdx}>{renderHighlightedText(cellValue, query)}</td>
+      <div className="results-header-tools">
+        <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+          Menampilkan {filteredData.length} hasil
+        </span>
+
+        <div className="view-mode-toggle">
+          <button
+            className={`view-mode-btn ${viewLayout === 'table' ? 'active' : ''}`}
+            onClick={() => setViewLayout('table')}
+            title="Tampilan Tabel (Sticky Left Column)"
+          >
+            <Table size={14} />
+            <span>Tabel</span>
+          </button>
+          <button
+            className={`view-mode-btn ${viewLayout === 'cards' ? 'active' : ''}`}
+            onClick={() => setViewLayout('cards')}
+            title="Tampilan Kartu Ringkas Mobile"
+          >
+            <LayoutList size={14} />
+            <span>Kartu</span>
+          </button>
+        </div>
+      </div>
+
+      {viewLayout === 'table' ? (
+        <>
+          <div className="mobile-scroll-hint">
+            ← Geser tabel ke kanan untuk melihat detail lengkap →
+          </div>
+          <div className="table-wrapper">
+            <table>
+            <thead>
+              <tr>
+                {displayHeaders.map((h, idx) => (
+                  <th key={idx}>{h}</th>
                 ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {processedData.map((rowCells, rIdx) => (
+                <tr key={rIdx}>
+                  {rowCells.map((cellValue, cIdx) => (
+                    <td key={cIdx}>{renderHighlightedText(cellValue, query)}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        </>
+      ) : (
+        <div className="mobile-cards-grid">
+          {processedData.map((rowCells, rIdx) => {
+            const primaryTitle = rowCells[1] || rowCells[0] || 'Item Material';
+            const badgeTag = rowCells[0] || 'BRAND';
+            return (
+              <div key={rIdx} className="mobile-card">
+                <div className="mobile-card-header">
+                  <div className="mobile-card-title">
+                    {renderHighlightedText(primaryTitle, query)}
+                  </div>
+                  <span className="mobile-card-badge">
+                    {renderHighlightedText(badgeTag, query)}
+                  </span>
+                </div>
+                {displayHeaders.map((headerName, cIdx) => {
+                  if (cIdx === 0 && primaryTitle === rowCells[1]) return null;
+                  if (cIdx === 1) return null;
+                  return (
+                    <div key={cIdx} className="mobile-card-row">
+                      <span className="mobile-card-label">{headerName}:</span>
+                      <span className="mobile-card-value">
+                        {renderHighlightedText(rowCells[cIdx], query)}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       <div className="results-footer">
-        <span>{filteredData.length} hasil ditemukan</span>
+        <span>{filteredData.length} item ditemukan</span>
         <span>Mode: {currentMode.toUpperCase()}</span>
       </div>
     </div>
   );
 }
+
