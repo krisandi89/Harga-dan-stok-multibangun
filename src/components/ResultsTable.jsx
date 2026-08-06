@@ -8,12 +8,7 @@ export default function ResultsTable({
   query,
   currentMode
 }) {
-  const [viewLayout, setViewLayout] = useState(() => {
-    if (typeof window !== 'undefined' && window.innerWidth <= 768) {
-      return 'cards';
-    }
-    return 'table';
-  });
+  const [viewLayout, setViewLayout] = useState('cards'); // Default View Mode: 'cards' (pengguna bisa switch ke 'table')
 
   // Helper to escape regex special chars
   const escapeRegex = (string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

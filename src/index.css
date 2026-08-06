@@ -520,12 +520,13 @@ tr:hover td {
   color: var(--text-muted);
 }
 
-/* Mobile Card View Layout */
+/* Card View Grid Layout (Default View for Desktop & Mobile) */
 .mobile-cards-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+  gap: 1.1rem;
   width: 100%;
+  max-width: 100%;
 }
 
 .mobile-card {
@@ -638,6 +639,11 @@ tr:hover td {
     gap: 0.85rem;
     width: 100%;
     max-width: 100%;
+  }
+
+  .mobile-cards-grid {
+    grid-template-columns: 1fr;
+    gap: 0.85rem;
   }
 
   .header h1 {
