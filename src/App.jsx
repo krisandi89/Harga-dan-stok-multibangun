@@ -93,56 +93,37 @@ export default function App() {
 
   const [countdown, setCountdown] = useState(AUTO_REFRESH_SECONDS);
 
-  // Fetch real-time USD/IDR exchange rate (serverless /api/kurs + client fallback)
+  // Fetch Bank Panin USD/IDR sell rate from serverless /api/kurs
   const fetchKurs = useCallback(async (pass) => {
     setKursLoading(true);
     try {
       const params = new URLSearchParams();
       if (pass) params.append('password', pass);
 
-      try {
-        const res = await fetch(`/api/kurs?${params.toString()}`);
-        if (res.ok) {
-          const json = await res.json();
-          setKurs(json);
-          setKursError('');
-          return true;
-        }
-        if (res.status === 401) {
-          return false;
-        }
-      } catch (e) {
-        console.warn('Backend /api/kurs unreachable, falling back to public FX API...', e);
+      const res = await fetch(`/api/kurs?${params.toString()}`);
+      if (res.status === 401) {
+        return false;
+      }
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
       }
 
-      const fallbackRes = await fetch(
-        'https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.min.json'
-      );
-      if (!fallbackRes.ok) throw new Error(`HTTP ${fallbackRes.status}`);
-      const fallbackJson = await fallbackRes.json();
-      const idrRate = Number(fallbackJson?.usd?.idr);
-      if (!Number.isFinite(idrRate) || idrRate <= 0) {
-        throw new Error('Kurs IDR tidak tersedia');
+      const json = await res.json();
+      if (!json?.panin?.sell) {
+        throw new Error('Kurs jual Bank Panin belum tersedia');
       }
 
-      setKurs({
-        status: 'success',
-        currency: 'USD/IDR',
-        spot: {
-          rate: Number(idrRate.toFixed(2)),
-          change: null,
-          changePercent: null,
-          source: 'Spot Pasar (Currency API)',
-          marketTime: fallbackJson?.date ? `${fallbackJson.date}T00:00:00.000Z` : null
-        },
-        panin: null,
-        fetchedAt: new Date().toISOString()
-      });
+      setKurs(json);
       setKursError('');
       return true;
     } catch (err) {
-      console.warn('Gagal memuat kurs USD/IDR:', err);
-      setKursError('Gagal memuat kurs');
+      console.warn('Gagal memuat kurs Panin USD/IDR:', err);
+      setKurs((prev) => {
+        if (!prev?.panin?.sell) {
+          setKursError('Gagal memuat kurs Panin');
+        }
+        return prev;
+      });
       return false;
     } finally {
       setKursLoading(false);

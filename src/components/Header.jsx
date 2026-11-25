@@ -1,5 +1,5 @@
 import React from 'react';
-import { LogOut, TrendingUp, TrendingDown, Minus, Clock } from 'lucide-react';
+import { LogOut, Clock } from 'lucide-react';
 
 function formatIdr(value) {
   if (!Number.isFinite(Number(value))) return '-';
@@ -20,16 +20,8 @@ function formatTimeWib(isoString) {
 }
 
 export default function Header({ isAuthenticated, onLogout, kurs, kursLoading, kursError }) {
-  const spotRate = kurs?.spot?.rate;
-  const spotChange = kurs?.spot?.change;
-  const spotChangePct = kurs?.spot?.changePercent;
-  const paninBuy = kurs?.panin?.buy;
   const paninSell = kurs?.panin?.sell;
-  const updatedTime = formatTimeWib(kurs?.fetchedAt || kurs?.spot?.marketTime);
-
-  const hasChange = Number.isFinite(Number(spotChange)) && Number(spotChange) !== 0;
-  const isUp = Number(spotChange) > 0;
-  const isDown = Number(spotChange) < 0;
+  const updatedTime = formatTimeWib(kurs?.fetchedAt);
 
   return (
     <header className="header">
@@ -54,42 +46,25 @@ export default function Header({ isAuthenticated, onLogout, kurs, kursLoading, k
         <div className="kurs-banner" aria-live="polite">
           <div className="kurs-main">
             <span className="kurs-live-dot" title="Update otomatis setiap 30 detik" />
-            <span className="kurs-label">Kurs USD</span>
+            <span className="kurs-label">Kurs Panin · Jual</span>
 
-            {kursLoading && !kurs ? (
-              <span className="kurs-value-muted">Memuat kurs...</span>
-            ) : spotRate ? (
-              <>
-                <span className="kurs-value">1 USD = Rp {formatIdr(spotRate)}</span>
-                {hasChange && (
-                  <span className={`kurs-delta ${isUp ? 'up' : isDown ? 'down' : ''}`}>
-                    {isUp ? <TrendingUp size={12} /> : isDown ? <TrendingDown size={12} /> : <Minus size={12} />}
-                    {isUp ? '+' : ''}{formatIdr(spotChange)} ({isUp ? '+' : ''}{spotChangePct}%)
-                  </span>
-                )}
-              </>
-            ) : paninBuy || paninSell ? (
-              <span className="kurs-value">
-                Panin Tengah Rp {formatIdr(kurs?.panin?.mid ?? ((paninBuy + paninSell) / 2))}
-              </span>
+            {kursLoading && !paninSell ? (
+              <span className="kurs-value-muted">Memuat kurs Panin...</span>
+            ) : paninSell ? (
+              <span className="kurs-value">1 USD = Rp {formatIdr(paninSell)}</span>
             ) : (
-              <span className="kurs-value-muted">{kursError || 'Kurs belum tersedia'}</span>
+              <span className="kurs-value-muted">{kursError || 'Kurs Panin belum tersedia'}</span>
             )}
           </div>
 
-          <div className="kurs-meta">
-            {(paninBuy || paninSell) && (
-              <span className="kurs-panin-pill" title="Kurs referensi Bank Panin">
-                <strong>Panin:</strong> Beli Rp {formatIdr(paninBuy)} · Jual Rp {formatIdr(paninSell)}
-              </span>
-            )}
-            {updatedTime !== '-' && (
-              <span className="kurs-updated" title={`Sumber: ${kurs?.spot?.source || 'Bank Panin'}`}>
+          {updatedTime !== '-' && (
+            <div className="kurs-meta">
+              <span className="kurs-updated" title="Sumber: Kurs Jual Bank Panin">
                 <Clock size={12} />
                 {updatedTime}
               </span>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       )}
     </header>
