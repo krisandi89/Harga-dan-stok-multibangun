@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { getUsdIdrKurs } from './api/_kursService.js';
 
 const DEFAULT_SHEETS = {
   harga: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTpP3VHWDYD_sju_TrkIIvOQm_PoTbfQX8mMvm6HkcrsJ56cAQjP229Quz9Y_0hpaLwktjE5w8RBJzK/pub?gid=0&single=true&output=csv',
@@ -107,6 +108,32 @@ function localApiPlugin() {
             );
           } catch (err) {
             console.error('Local API Plugin Error:', err);
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ error: err.message || 'Internal Server Error' }));
+          }
+          return;
+        }
+
+        if (req.url && req.url.startsWith('/api/kurs')) {
+          try {
+            const urlObj = new URL(req.url, `http://${req.headers.host}`);
+            const password = urlObj.searchParams.get('password') || '';
+
+            if (password !== DEFAULT_PASSWORD) {
+              res.statusCode = 401;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ error: 'Unauthorized: Password salah.' }));
+              return;
+            }
+
+            const kursData = await getUsdIdrKurs();
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json');
+            res.setHeader('Cache-Control', 'no-store');
+            res.end(JSON.stringify(kursData));
+          } catch (err) {
+            console.error('Local Kurs API Error:', err);
             res.statusCode = 500;
             res.setHeader('Content-Type', 'application/json');
             res.end(JSON.stringify({ error: err.message || 'Internal Server Error' }));

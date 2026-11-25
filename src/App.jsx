@@ -87,7 +87,67 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  const [kurs, setKurs] = useState(null);
+  const [kursLoading, setKursLoading] = useState(false);
+  const [kursError, setKursError] = useState('');
+
   const [countdown, setCountdown] = useState(AUTO_REFRESH_SECONDS);
+
+  // Fetch real-time USD/IDR exchange rate (serverless /api/kurs + client fallback)
+  const fetchKurs = useCallback(async (pass) => {
+    setKursLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (pass) params.append('password', pass);
+
+      try {
+        const res = await fetch(`/api/kurs?${params.toString()}`);
+        if (res.ok) {
+          const json = await res.json();
+          setKurs(json);
+          setKursError('');
+          return true;
+        }
+        if (res.status === 401) {
+          return false;
+        }
+      } catch (e) {
+        console.warn('Backend /api/kurs unreachable, falling back to public FX API...', e);
+      }
+
+      const fallbackRes = await fetch(
+        'https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.min.json'
+      );
+      if (!fallbackRes.ok) throw new Error(`HTTP ${fallbackRes.status}`);
+      const fallbackJson = await fallbackRes.json();
+      const idrRate = Number(fallbackJson?.usd?.idr);
+      if (!Number.isFinite(idrRate) || idrRate <= 0) {
+        throw new Error('Kurs IDR tidak tersedia');
+      }
+
+      setKurs({
+        status: 'success',
+        currency: 'USD/IDR',
+        spot: {
+          rate: Number(idrRate.toFixed(2)),
+          change: null,
+          changePercent: null,
+          source: 'Spot Pasar (Currency API)',
+          marketTime: fallbackJson?.date ? `${fallbackJson.date}T00:00:00.000Z` : null
+        },
+        panin: null,
+        fetchedAt: new Date().toISOString()
+      });
+      setKursError('');
+      return true;
+    } catch (err) {
+      console.warn('Gagal memuat kurs USD/IDR:', err);
+      setKursError('Gagal memuat kurs');
+      return false;
+    } finally {
+      setKursLoading(false);
+    }
+  }, []);
 
   // Fetch data function with serverless API + Direct Google Sheets CSV Fallback
   const fetchData = useCallback(async (modeToFetch, pass, isManual = false) => {
@@ -174,7 +234,10 @@ export default function App() {
     setIsAuthenticated(true);
     setAuthError('');
 
-    await fetchData(currentMode, enteredPassword, false);
+    await Promise.all([
+      fetchData(currentMode, enteredPassword, false),
+      fetchKurs(enteredPassword)
+    ]);
     setIsSubmitting(false);
   };
 
@@ -184,6 +247,8 @@ export default function App() {
     setIsAuthenticated(false);
     sessionStorage.removeItem('mb_auth_password');
     setData({ harga: [], stok: [] });
+    setKurs(null);
+    setKursError('');
   };
 
   // Mode toggle handler
@@ -200,8 +265,9 @@ export default function App() {
   useEffect(() => {
     if (password) {
       fetchData('harga', password);
+      fetchKurs(password);
     }
-  }, [fetchData, password]);
+  }, [fetchData, fetchKurs, password]);
 
   // Countdown & Auto-refresh timer
   useEffect(() => {
@@ -211,6 +277,7 @@ export default function App() {
       setCountdown((prev) => {
         if (prev <= 1) {
           fetchData(currentMode, password, true);
+          fetchKurs(password);
           return AUTO_REFRESH_SECONDS;
         }
         return prev - 1;
@@ -218,11 +285,12 @@ export default function App() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [currentMode, password, isAuthenticated, fetchData]);
+  }, [currentMode, password, isAuthenticated, fetchData, fetchKurs]);
 
   // Manual refresh handler
   const handleManualRefresh = () => {
     fetchData(currentMode, password, true);
+    fetchKurs(password);
     setCountdown(AUTO_REFRESH_SECONDS);
   };
 
@@ -233,7 +301,13 @@ export default function App() {
 
   return (
     <div className="app-container">
-      <Header isAuthenticated={isAuthenticated} onLogout={handleLogout} />
+      <Header
+        isAuthenticated={isAuthenticated}
+        onLogout={handleLogout}
+        kurs={kurs}
+        kursLoading={kursLoading}
+        kursError={kursError}
+      />
 
       <ModeToggle currentMode={currentMode} onToggle={handleModeToggle} />
 
