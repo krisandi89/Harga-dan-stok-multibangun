@@ -1,122 +1,75 @@
 // Vercel Serverless Function Proxy (/api/data.js)
+import { applyApiHeaders, requireAuth } from './_auth.js';
+import { parseCsvFull } from './_csvParser.js';
 
-const DEFAULT_SHEETS = {
-  harga: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTpP3VHWDYD_sju_TrkIIvOQm_PoTbfQX8mMvm6HkcrsJ56cAQjP229Quz9Y_0hpaLwktjE5w8RBJzK/pub?gid=0&single=true&output=csv',
-  stok: 'https://docs.google.com/spreadsheets/d/1YEu-awdBQxR1zOwSUZwDYkv_t3YFSzZ4srIeGCxW5zc/export?format=csv&gid=0'
-};
+const VALID_MODES = new Set(['harga', 'stok']);
 
-const DEFAULT_PASSWORD = 'multibangun123';
-
-// Multiline-aware CSV Parser: Preserves cell line-breaks (e.g. multiline Keterangan)
-function parseCsvFull(csvText, isStokMode = false) {
-  const rows = [];
-  let curCell = '';
-  let curRow = [];
-  let inQuotes = false;
-
-  for (let i = 0; i < csvText.length; i++) {
-    const char = csvText[i];
-    const nextChar = csvText[i + 1];
-
-    if (char === '"') {
-      if (inQuotes && nextChar === '"') {
-        curCell += '"';
-        i++; // skip escaped quote
-      } else {
-        inQuotes = !inQuotes;
-      }
-    } else if (char === ',' && !inQuotes) {
-      curRow.push(curCell.trim());
-      curCell = '';
-    } else if ((char === '\r' || char === '\n') && !inQuotes) {
-      if (char === '\r' && nextChar === '\n') i++; // skip \r\n
-      curRow.push(curCell.trim());
-      if (curRow.some((c) => c !== '')) {
-        rows.push(curRow);
-      }
-      curRow = [];
-      curCell = '';
-    } else {
-      curCell += char;
-    }
+function getSheetUrl(mode) {
+  if (mode === 'stok') {
+    return (process.env.STOK_SHEET_URL || '').trim();
   }
-
-  if (curCell || curRow.length > 0) {
-    curRow.push(curCell.trim());
-    if (curRow.some((c) => c !== '')) {
-      rows.push(curRow);
-    }
-  }
-
-  if (isStokMode) {
-    let headerIdx = -1;
-    for (let i = 0; i < rows.length; i++) {
-      if (rows[i][0] === 'Brand') {
-        headerIdx = i;
-        break;
-      }
-    }
-    if (headerIdx !== -1) {
-      const headers = rows[headerIdx];
-      const data = rows.slice(headerIdx + 1);
-      return { headers, data };
-    }
-  }
-
-  if (rows.length === 0) return { headers: [], data: [] };
-  return { headers: rows[0], data: rows.slice(1) };
+  return (process.env.HARGA_SHEET_URL || '').trim();
 }
 
 export default async function handler(req, res) {
-  // CORS Headers
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
-  res.setHeader(
-    'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization'
-  );
-
-  if (req.method === 'OPTIONS') {
-    res.status(200).end();
+  if (!applyApiHeaders(req, res, ['GET', 'OPTIONS'])) {
     return;
   }
 
-  const { mode = 'harga', password = '' } = req.query;
-
-  // Password verification
-  const REQUIRED_PASSWORD = process.env.APP_PASSWORD || process.env.BACKEND_PASSWORD || DEFAULT_PASSWORD;
-
-  if (password !== REQUIRED_PASSWORD) {
-    return res.status(401).json({ error: 'Unauthorized: Password salah atau tidak valid.' });
+  if (!requireAuth(req, res)) {
+    return;
   }
 
-  // GAS WebApp URL option
-  const GAS_URL = process.env.GAS_WEBAPP_URL;
+  const rawMode = String(req.query?.mode || 'harga').toLowerCase().trim();
+  if (!VALID_MODES.has(rawMode)) {
+    return res.status(400).json({ error: 'Mode tidak valid. Gunakan "harga" atau "stok".' });
+  }
+  const mode = rawMode;
+
+  const gasUrl = (process.env.GAS_WEBAPP_URL || '').trim();
 
   try {
-    if (GAS_URL) {
-      const targetUrl = new URL(GAS_URL);
-      targetUrl.searchParams.append('mode', mode);
-      if (password) targetUrl.searchParams.append('password', password);
+    if (gasUrl) {
+      const targetUrl = new URL(gasUrl);
+      targetUrl.searchParams.set('mode', mode);
 
-      const response = await fetch(targetUrl.toString());
+      const gasPassword = (process.env.GAS_BACKEND_PASSWORD || '').trim();
+      if (gasPassword) {
+        targetUrl.searchParams.set('password', gasPassword);
+      }
+
+      const response = await fetch(targetUrl.toString(), {
+        signal: AbortSignal.timeout(10000)
+      });
+
       if (response.status === 401) {
-        return res.status(401).json({ error: 'Unauthorized: Password backend GAS salah.' });
+        return res.status(502).json({ error: 'Autentikasi ke backend GAS gagal.' });
       }
       if (!response.ok) {
-        throw new Error(`GAS response error: ${response.statusText}`);
+        throw new Error(`GAS response error: HTTP ${response.status}`);
       }
+
       const json = await response.json();
+      if (json?.error) {
+        return res.status(502).json({ error: 'Backend GAS mengembalikan error.' });
+      }
       return res.status(200).json(json);
     }
 
-    // Direct server-side fetch from Google Sheets
-    const csvUrl = DEFAULT_SHEETS[mode] || DEFAULT_SHEETS.harga;
-    const response = await fetch(csvUrl);
+    const csvUrl = getSheetUrl(mode);
+    if (!csvUrl) {
+      const envName = mode === 'stok' ? 'STOK_SHEET_URL' : 'HARGA_SHEET_URL';
+      return res.status(503).json({
+        error: `Konfigurasi sumber data ${mode} belum lengkap (${envName} belum disetel).`
+      });
+    }
+
+    const response = await fetch(csvUrl, {
+      signal: AbortSignal.timeout(10000)
+    });
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch ${mode} data: ${response.status}`);
+      throw new Error(`Failed to fetch ${mode} sheet: HTTP ${response.status}`);
     }
 
     const csvText = await response.text();
@@ -130,7 +83,7 @@ export default async function handler(req, res) {
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    console.error('API Error:', error);
-    return res.status(500).json({ error: error.message || 'Internal Server Error' });
+    console.error(`API /api/data (${mode}) Error:`, error);
+    return res.status(500).json({ error: `Gagal memuat data ${mode}. Silakan coba lagi.` });
   }
 }

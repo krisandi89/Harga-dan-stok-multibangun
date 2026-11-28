@@ -13,6 +13,14 @@ Thumbs.db
 dist/
 dist-ssr/
 
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Vercel
+.vercel/
+
 # Logs
 *.log
 

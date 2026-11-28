@@ -1,113 +1,114 @@
 /**
  * Google Apps Script (GAS) Backend untuk Multibangun MaterialHub
- * 
- * CARA PAKAI:
- * 1. Buka https://script.google.com/
- * 2. Buat proyek baru "Multibangun-Backend"
- * 3. Copas kode di bawah ini ke dalam Code.gs
- * 4. Klik "Deploy" -> "New deployment"
- * 5. Select type: "Web app"
- * 6. Execute as: "Me"
- * 7. Who has access: "Anyone"
- * 8. Klik "Deploy" dan simpan Web App URL.
- * 9. Masukkan Web App URL tersebut ke Vercel Environment Variable: GAS_WEBAPP_URL
+ *
+ * CARA PAKAI (AMAN UNTUK REPO PUBLIK — JANGAN HARDCODE URL/PASSWORD DI KODE):
+ * 1. Buka https://script.google.com/ dan buat proyek "Multibangun-Backend"
+ * 2. Copas kode di bawah ini ke dalam Code.gs
+ * 3. Buka "Project Settings" -> "Script Properties" -> tambahkan property:
+ *    - HARGA_CSV_URL    : URL CSV Google Sheet Harga (atau pakai SpreadsheetApp.openById)
+ *    - STOK_CSV_URL     : URL CSV Google Sheet Stok
+ *    - BACKEND_PASSWORD : Password rahasia (samakan dengan GAS_BACKEND_PASSWORD di Vercel)
+ * 4. Klik "Deploy" -> "New deployment" -> "Web app"
+ * 5. Execute as: "Me" | Who has access: "Anyone"
+ * 6. Simpan Web App URL ke Vercel Environment Variable: GAS_WEBAPP_URL
  */
 
-const CONFIG = {
-  // Masukkan password jika ingin memproteksi backend (Opsional)
-  BACKEND_PASSWORD: "", 
-  
-  // Sheet URLs
-  HARGA_CSV_URL: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTpP3VHWDYD_sju_TrkIIvOQm_PoTbfQX8mMvm6HkcrsJ56cAQjP229Quz9Y_0hpaLwktjE5w8RBJzK/pub?gid=0&single=true&output=csv',
-  STOK_CSV_URL: 'https://docs.google.com/spreadsheets/d/1YEu-awdBQxR1zOwSUZwDYkv_t3YFSzZ4srIeGCxW5zc/export?format=csv&gid=0'
-};
+function getConfig() {
+  const props = PropertiesService.getScriptProperties();
+  return {
+    BACKEND_PASSWORD: (props.getProperty('BACKEND_PASSWORD') || '').trim(),
+    HARGA_CSV_URL: (props.getProperty('HARGA_CSV_URL') || '').trim(),
+    STOK_CSV_URL: (props.getProperty('STOK_CSV_URL') || '').trim()
+  };
+}
 
 function doGet(e) {
+  const config = getConfig();
   const mode = (e && e.parameter && e.parameter.mode) ? e.parameter.mode : 'harga';
   const password = (e && e.parameter && e.parameter.password) ? e.parameter.password : '';
-  
-  // Verifikasi Password jika dikonfigurasi
-  if (CONFIG.BACKEND_PASSWORD && password !== CONFIG.BACKEND_PASSWORD) {
-    return createJsonResponse({ error: 'Unauthorized: Password backend tidak valid' }, 401);
+
+  // Verifikasi Password jika dikonfigurasi di Script Properties
+  if (config.BACKEND_PASSWORD && password !== config.BACKEND_PASSWORD) {
+    return createJsonResponse({ error: 'Unauthorized: Password backend tidak valid' });
   }
 
   try {
-    const csvUrl = mode === 'stok' ? CONFIG.STOK_CSV_URL : CONFIG.HARGA_CSV_URL;
+    const csvUrl = mode === 'stok' ? config.STOK_CSV_URL : config.HARGA_CSV_URL;
+    if (!csvUrl) {
+      return createJsonResponse({
+        error: 'Script Property ' + (mode === 'stok' ? 'STOK_CSV_URL' : 'HARGA_CSV_URL') + ' belum disetel.'
+      });
+    }
+
     const response = UrlFetchApp.fetch(csvUrl);
     const csvText = response.getContentText();
-    
-    let lines = csvText.split('\n');
-    
-    if (mode === 'stok') {
-      let headerIdx = -1;
-      for (let i = 0; i < lines.length; i++) {
-        if (lines[i].startsWith('Brand,')) {
-          headerIdx = i;
-          break;
-        }
-      }
-      if (headerIdx !== -1) {
-        lines = lines.slice(headerIdx);
-      }
-    }
-    
-    const parsedData = parseCsvLines(lines);
-    
+    const parsedData = parseCsvFull(csvText, mode === 'stok');
+
     return createJsonResponse({
       status: 'success',
       mode: mode,
       headers: parsedData.headers,
-      data: parsedData.rows,
+      data: parsedData.data,
       timestamp: new Date().toISOString()
-    }, 200);
-
-  } catch (error) {
-    return createJsonResponse({ error: error.toString() }, 500);
-  }
-}
-
-function parseCsvLines(lines) {
-  if (lines.length === 0) return { headers: [], rows: [] };
-  
-  const headers = parseCsvRow(lines[0]).map(h => h.trim());
-  const rows = [];
-  
-  for (let i = 1; i < lines.length; i++) {
-    if (!lines[i].trim()) continue;
-    const values = parseCsvRow(lines[i]);
-    const rowObj = {};
-    
-    headers.forEach((header, index) => {
-      rowObj[header] = values[index] !== undefined ? values[index].trim() : '';
     });
-    
-    rows.push(rowObj);
+  } catch (error) {
+    return createJsonResponse({ error: error.toString() });
   }
-  
-  return { headers, rows };
 }
 
-function parseCsvRow(rowStr) {
-  const result = [];
-  let current = '';
+function parseCsvFull(csvText, isStokMode) {
+  const rows = [];
+  let curCell = '';
+  let curRow = [];
   let inQuotes = false;
-  
-  for (let i = 0; i < rowStr.length; i++) {
-    const char = rowStr[i];
+
+  for (let i = 0; i < csvText.length; i++) {
+    const char = csvText[i];
+    const nextChar = csvText[i + 1];
+
     if (char === '"') {
-      inQuotes = !inQuotes;
+      if (inQuotes && nextChar === '"') {
+        curCell += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
     } else if (char === ',' && !inQuotes) {
-      result.push(current);
-      current = '';
+      curRow.push(curCell.trim());
+      curCell = '';
+    } else if ((char === '\r' || char === '\n') && !inQuotes) {
+      if (char === '\r' && nextChar === '\n') i++;
+      curRow.push(curCell.trim());
+      if (curRow.some(function (c) { return c !== ''; })) {
+        rows.push(curRow);
+      }
+      curRow = [];
+      curCell = '';
     } else {
-      current += char;
+      curCell += char;
     }
   }
-  result.push(current);
-  return result;
+
+  if (curCell || curRow.length > 0) {
+    curRow.push(curCell.trim());
+    if (curRow.some(function (c) { return c !== ''; })) {
+      rows.push(curRow);
+    }
+  }
+
+  if (isStokMode) {
+    for (let i = 0; i < rows.length; i++) {
+      if (rows[i][0] === 'Brand') {
+        return { headers: rows[i], data: rows.slice(i + 1) };
+      }
+    }
+  }
+
+  if (rows.length === 0) return { headers: [], data: [] };
+  return { headers: rows[0], data: rows.slice(1) };
 }
 
-function createJsonResponse(obj, statusCode) {
+function createJsonResponse(obj) {
   const output = ContentService.createTextOutput(JSON.stringify(obj));
   output.setMimeType(ContentService.MimeType.JSON);
   return output;

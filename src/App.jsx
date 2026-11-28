@@ -7,75 +7,10 @@ import StatusFooter from './components/StatusFooter';
 import LoginScreen from './components/LoginScreen';
 
 const AUTO_REFRESH_SECONDS = 30;
-const DEFAULT_PASSWORD = 'multibangun123';
-
-const DEFAULT_SHEETS = {
-  harga: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTpP3VHWDYD_sju_TrkIIvOQm_PoTbfQX8mMvm6HkcrsJ56cAQjP229Quz9Y_0hpaLwktjE5w8RBJzK/pub?gid=0&single=true&output=csv',
-  stok: 'https://docs.google.com/spreadsheets/d/1YEu-awdBQxR1zOwSUZwDYkv_t3YFSzZ4srIeGCxW5zc/export?format=csv&gid=0'
-};
-
-function parseCsvFullClient(csvText, isStokMode = false) {
-  const rows = [];
-  let curCell = '';
-  let curRow = [];
-  let inQuotes = false;
-
-  for (let i = 0; i < csvText.length; i++) {
-    const char = csvText[i];
-    const nextChar = csvText[i + 1];
-
-    if (char === '"') {
-      if (inQuotes && nextChar === '"') {
-        curCell += '"';
-        i++;
-      } else {
-        inQuotes = !inQuotes;
-      }
-    } else if (char === ',' && !inQuotes) {
-      curRow.push(curCell.trim());
-      curCell = '';
-    } else if ((char === '\r' || char === '\n') && !inQuotes) {
-      if (char === '\r' && nextChar === '\n') i++;
-      curRow.push(curCell.trim());
-      if (curRow.some((c) => c !== '')) {
-        rows.push(curRow);
-      }
-      curRow = [];
-      curCell = '';
-    } else {
-      curCell += char;
-    }
-  }
-
-  if (curCell || curRow.length > 0) {
-    curRow.push(curCell.trim());
-    if (curRow.some((c) => c !== '')) {
-      rows.push(curRow);
-    }
-  }
-
-  if (isStokMode) {
-    let headerIdx = -1;
-    for (let i = 0; i < rows.length; i++) {
-      if (rows[i][0] === 'Brand') {
-        headerIdx = i;
-        break;
-      }
-    }
-    if (headerIdx !== -1) {
-      const headers = rows[headerIdx];
-      const data = rows.slice(headerIdx + 1);
-      return { headers, data };
-    }
-  }
-
-  if (rows.length === 0) return { headers: [], data: [] };
-  return { headers: rows[0], data: rows.slice(1) };
-}
 
 export default function App() {
-  const [password, setPassword] = useState(() => sessionStorage.getItem('mb_auth_password') || '');
-  const [isAuthenticated, setIsAuthenticated] = useState(() => Boolean(sessionStorage.getItem('mb_auth_password')));
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authError, setAuthError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -84,6 +19,7 @@ export default function App() {
 
   const [data, setData] = useState({ harga: [], stok: [] });
   const [headers, setHeaders] = useState({ harga: [], stok: [] });
+  const [dataError, setDataError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -93,15 +29,64 @@ export default function App() {
 
   const [countdown, setCountdown] = useState(AUTO_REFRESH_SECONDS);
 
-  // Fetch Bank Panin USD/IDR sell rate from serverless /api/kurs
-  const fetchKurs = useCallback(async (pass) => {
+  const handleSessionExpired = useCallback(() => {
+    setIsAuthenticated(false);
+    setAuthError('Sesi Anda telah berakhir. Silakan login kembali.');
+    setData({ harga: [], stok: [] });
+    setHeaders({ harga: [], stok: [] });
+    setKurs(null);
+    setKursError('');
+    setDataError('');
+  }, []);
+
+  // Cek sesi cookie HttpOnly saat aplikasi pertama kali dibuka
+  useEffect(() => {
+    let active = true;
+
+    async function checkSession() {
+      try {
+        const res = await fetch('/api/session', {
+          method: 'GET',
+          credentials: 'same-origin'
+        });
+
+        const json = await res.json().catch(() => ({}));
+        if (!active) return;
+
+        if (res.ok && json.authenticated) {
+          setIsAuthenticated(true);
+          setAuthError('');
+        } else {
+          setIsAuthenticated(false);
+          if (res.status === 503 && json.error) {
+            setAuthError(json.error);
+          }
+        }
+      } catch (err) {
+        console.warn('Gagal memeriksa sesi login:', err);
+        if (active) setIsAuthenticated(false);
+      } finally {
+        if (active) setIsCheckingSession(false);
+      }
+    }
+
+    checkSession();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // Fetch kurs jual Bank Panin USD/IDR dari /api/kurs (autentikasi via HttpOnly cookie)
+  const fetchKurs = useCallback(async () => {
     setKursLoading(true);
     try {
-      const params = new URLSearchParams();
-      if (pass) params.append('password', pass);
+      const res = await fetch('/api/kurs', {
+        method: 'GET',
+        credentials: 'same-origin'
+      });
 
-      const res = await fetch(`/api/kurs?${params.toString()}`);
       if (res.status === 401) {
+        handleSessionExpired();
         return false;
       }
       if (!res.ok) {
@@ -118,118 +103,102 @@ export default function App() {
       return true;
     } catch (err) {
       console.warn('Gagal memuat kurs Panin USD/IDR:', err);
-      setKurs((prev) => {
-        if (!prev?.panin?.sell) {
-          setKursError('Gagal memuat kurs Panin');
-        }
-        return prev;
-      });
+      setKursError('Gagal memuat kurs Panin');
       return false;
     } finally {
       setKursLoading(false);
     }
-  }, []);
+  }, [handleSessionExpired]);
 
-  // Fetch data function with serverless API + Direct Google Sheets CSV Fallback
-  const fetchData = useCallback(async (modeToFetch, pass, isManual = false) => {
+  // Fetch data harga/stok melalui serverless proxy /api/data (tanpa fallback publik dari client)
+  const fetchData = useCallback(async (modeToFetch, isManual = false) => {
     if (isManual) setIsRefreshing(true);
     else setIsLoading(true);
 
     try {
       const params = new URLSearchParams({ mode: modeToFetch });
-      if (pass) params.append('password', pass);
+      const res = await fetch(`/api/data?${params.toString()}`, {
+        method: 'GET',
+        credentials: 'same-origin'
+      });
 
-      let fetchedSuccess = false;
-      try {
-        const res = await fetch(`/api/data?${params.toString()}`);
-
-        if (res.status === 401) {
-          setIsAuthenticated(false);
-          setAuthError('Password salah. Silakan coba lagi.');
-          sessionStorage.removeItem('mb_auth_password');
-          return false;
-        }
-
-        if (res.ok) {
-          const json = await res.json();
-          setData((prev) => ({ ...prev, [modeToFetch]: json.data || [] }));
-          setHeaders((prev) => ({ ...prev, [modeToFetch]: json.headers || [] }));
-          setIsAuthenticated(true);
-          setAuthError('');
-          fetchedSuccess = true;
-        }
-      } catch (e) {
-        console.warn('Backend API endpoint unreachable, falling back to direct sheets fetch...', e);
+      if (res.status === 401) {
+        handleSessionExpired();
+        return false;
       }
 
-      // Fallback if API returned error or was 404
-      if (!fetchedSuccess) {
-        const csvUrl = DEFAULT_SHEETS[modeToFetch] || DEFAULT_SHEETS.harga;
-        const resCsv = await fetch(csvUrl);
-        if (!resCsv.ok) throw new Error(`HTTP ${resCsv.status}`);
-        const csvText = await resCsv.text();
-        const parsed = parseCsvFullClient(csvText, modeToFetch === 'stok');
-
-        setData((prev) => ({ ...prev, [modeToFetch]: parsed.data || [] }));
-        setHeaders((prev) => ({ ...prev, [modeToFetch]: parsed.headers || [] }));
-        setIsAuthenticated(true);
-        setAuthError('');
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(json.error || `Gagal memuat data (HTTP ${res.status})`);
       }
 
+      setData((prev) => ({ ...prev, [modeToFetch]: json.data || [] }));
+      setHeaders((prev) => ({ ...prev, [modeToFetch]: json.headers || [] }));
+      setDataError('');
       return true;
     } catch (err) {
       console.error(`Gagal memuat data ${modeToFetch}:`, err);
-      if (pass === DEFAULT_PASSWORD || sessionStorage.getItem('mb_auth_password')) {
-        setIsAuthenticated(true);
-        setAuthError('');
-        return true;
-      }
-      setAuthError('Gagal terhubung ke server API data.');
+      setDataError(err.message || `Gagal memuat data ${modeToFetch}.`);
       return false;
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, []);
+  }, [handleSessionExpired]);
 
-
-  // Handle User Login
+  // Login melalui POST /api/login — tunggu verifikasi server sebelum membuka dashboard
   const handleLogin = async (enteredPassword) => {
     setAuthError('');
     setIsSubmitting(true);
 
-    if (enteredPassword !== DEFAULT_PASSWORD && sessionStorage.getItem('mb_auth_password') && enteredPassword !== sessionStorage.getItem('mb_auth_password')) {
-      const success = await fetchData(currentMode, enteredPassword, false);
-      setIsSubmitting(false);
-      if (success) {
-        setPassword(enteredPassword);
-        sessionStorage.setItem('mb_auth_password', enteredPassword);
-      } else {
-        setAuthError('Password salah. Silakan coba lagi.');
+    try {
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ password: enteredPassword })
+      });
+
+      const json = await res.json().catch(() => ({}));
+
+      if (!res.ok || !json.authenticated) {
+        setIsAuthenticated(false);
+        setAuthError(json.error || 'Password salah. Silakan coba lagi.');
+        return;
       }
-      return;
+
+      setAuthError('');
+      setCountdown(AUTO_REFRESH_SECONDS);
+      setIsAuthenticated(true);
+    } catch (err) {
+      console.error('Login error:', err);
+      setIsAuthenticated(false);
+      setAuthError('Gagal terhubung ke server autentikasi. Periksa koneksi Anda.');
+    } finally {
+      setIsSubmitting(false);
     }
-
-    setPassword(enteredPassword);
-    sessionStorage.setItem('mb_auth_password', enteredPassword);
-    setIsAuthenticated(true);
-    setAuthError('');
-
-    await Promise.all([
-      fetchData(currentMode, enteredPassword, false),
-      fetchKurs(enteredPassword)
-    ]);
-    setIsSubmitting(false);
   };
 
-  // Handle Logout
-  const handleLogout = () => {
-    setPassword('');
-    setIsAuthenticated(false);
-    sessionStorage.removeItem('mb_auth_password');
-    setData({ harga: [], stok: [] });
-    setKurs(null);
-    setKursError('');
+  // Logout melalui POST /api/logout untuk menghapus HttpOnly cookie di server
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/logout', {
+        method: 'POST',
+        credentials: 'same-origin'
+      });
+    } catch (err) {
+      console.warn('Logout request failed:', err);
+    } finally {
+      setIsAuthenticated(false);
+      setAuthError('');
+      setData({ harga: [], stok: [] });
+      setHeaders({ harga: [], stok: [] });
+      setDataError('');
+      setKurs(null);
+      setKursError('');
+      setQuery('');
+      setCurrentMode('harga');
+    }
   };
 
   // Mode toggle handler
@@ -237,45 +206,57 @@ export default function App() {
     if (newMode === currentMode) return;
     setCurrentMode(newMode);
     setQuery('');
+    setDataError('');
     if (!data[newMode] || data[newMode].length === 0) {
-      fetchData(newMode, password);
+      fetchData(newMode);
     }
   };
 
-  // Initial load
+  // Initial load saat terautentikasi (hanya 1x fetch per sesi masuk)
   useEffect(() => {
-    if (password) {
-      fetchData('harga', password);
-      fetchKurs(password);
-    }
-  }, [fetchData, fetchKurs, password]);
+    if (!isAuthenticated) return;
+    fetchData('harga');
+    fetchKurs();
+  }, [isAuthenticated, fetchData, fetchKurs]);
 
-  // Countdown & Auto-refresh timer
+  // Countdown tick (tanpa memanggil async side-effect di dalam state updater)
   useEffect(() => {
     if (!isAuthenticated) return;
 
     const timer = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          fetchData(currentMode, password, true);
-          fetchKurs(password);
-          return AUTO_REFRESH_SECONDS;
-        }
-        return prev - 1;
-      });
+      setCountdown((prev) => (prev <= 1 ? 0 : prev - 1));
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [currentMode, password, isAuthenticated, fetchData, fetchKurs]);
+  }, [isAuthenticated]);
+
+  // Trigger auto-refresh saat countdown mencapai 0
+  useEffect(() => {
+    if (!isAuthenticated || countdown > 0) return;
+
+    fetchData(currentMode, true);
+    fetchKurs();
+    setCountdown(AUTO_REFRESH_SECONDS);
+  }, [countdown, isAuthenticated, currentMode, fetchData, fetchKurs]);
 
   // Manual refresh handler
   const handleManualRefresh = () => {
-    fetchData(currentMode, password, true);
-    fetchKurs(password);
+    fetchData(currentMode, true);
+    fetchKurs();
     setCountdown(AUTO_REFRESH_SECONDS);
   };
 
-  // Render Login Screen if not authenticated
+  if (isCheckingSession) {
+    return (
+      <div className="login-wrapper">
+        <div className="loading-state">
+          <div className="spinner" />
+          <span>Memeriksa sesi...</span>
+        </div>
+      </div>
+    );
+  }
+
   if (!isAuthenticated) {
     return <LoginScreen onLogin={handleLogin} error={authError} isSubmitting={isSubmitting} />;
   }
@@ -293,6 +274,12 @@ export default function App() {
       <ModeToggle currentMode={currentMode} onToggle={handleModeToggle} />
 
       <SearchBar query={query} setQuery={setQuery} currentMode={currentMode} />
+
+      {dataError && (
+        <div className="login-error-alert" role="alert">
+          <span>{dataError}</span>
+        </div>
+      )}
 
       <ResultsTable
         isLoading={isLoading && (!data[currentMode] || data[currentMode].length === 0)}
