@@ -214,7 +214,7 @@ export function applyApiHeaders(req, res, allowedMethods = ['GET', 'OPTIONS']) {
       const originHost = new URL(origin).host;
       isSameOrigin = Boolean(req.headers?.host) && originHost === req.headers.host;
     } catch {
-      isSameOrigin = false;
+      // Invalid origin header; keep isSameOrigin as false
     }
 
     if (isSameOrigin || allowedOrigins.includes(origin)) {

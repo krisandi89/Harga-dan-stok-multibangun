@@ -103,13 +103,19 @@ function levenshteinWithin(a, b, maxDist) {
  */
 function scoreTokenMatch(qToken, rowTokens, rowNormText, rowCompactText) {
   if (isNumericToken(qToken)) {
-    // Exact numeric token match (e.g. "80" matches "80", NOT "580" or "280")
+    // Exact numeric token match (e.g. "80" matches "80", "2" matches "2" / "2.00")
     for (const rt of rowTokens) {
       if (rt === qToken) return 10;
     }
-    // Numeric prefix match for decimal or multi-digit codes (e.g. "30" matches "3030", "3.8" matches "3.8")
+    // Decimal match (e.g. "2" matches "2.5", without falsely matching "20" or "200")
     for (const rt of rowTokens) {
-      if (isNumericToken(rt) && rt.startsWith(qToken)) return 6;
+      if (isNumericToken(rt) && rt.startsWith(`${qToken}.`)) return 8;
+    }
+    // Multi-digit code prefix match (e.g. "30" matches "3030", "52" matches "520")
+    if (qToken.length >= 2) {
+      for (const rt of rowTokens) {
+        if (isNumericToken(rt) && rt.startsWith(qToken)) return 6;
+      }
     }
     return 0;
   }
