@@ -1,29 +1,22 @@
 import React, { useState, useMemo } from 'react';
 import { Search, AlertCircle, LayoutList, Table } from 'lucide-react';
+import {
+  buildHighlightRegex,
+  filterAndRankRows,
+  getHighlightSegments
+} from '../utils/flexibleSearch';
 
 const IS_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/i.test(navigator.platform || navigator.userAgent);
 
-function escapeRegex(string) {
-  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-function renderHighlightedText(text, searchTerm) {
-  if (text === null || text === undefined || text === '') return '-';
-  const trimmed = searchTerm.trim();
-  const textStr = String(text);
-  if (!trimmed) return textStr;
-
-  const trimmedLower = trimmed.toLowerCase();
-  const regex = new RegExp(`(${escapeRegex(trimmed)})`, 'gi');
-  const parts = textStr.split(regex);
-
-  return parts.map((part, i) =>
-    part.toLowerCase() === trimmedLower ? (
-      <span key={i} className="highlight">
-        {part}
+function renderHighlightedText(text, highlightRegex) {
+  const segments = getHighlightSegments(text, highlightRegex);
+  return segments.map((seg, idx) =>
+    seg.match ? (
+      <span key={idx} className="highlight">
+        {seg.text}
       </span>
     ) : (
-      part
+      seg.text
     )
   );
 }
@@ -70,12 +63,15 @@ export default function ResultsTable({
 
   const trimmedQuery = query.trim();
 
+  const highlightRegex = useMemo(
+    () => buildHighlightRegex(trimmedQuery),
+    [trimmedQuery]
+  );
+
   const { displayHeaders, processedData } = useMemo(() => {
     if (!trimmedQuery || !Array.isArray(data) || data.length === 0) {
       return { displayHeaders: headers || [], processedData: [] };
     }
-
-    const searchTerm = trimmedQuery.toLowerCase();
 
     if (currentMode === 'stok') {
       const stokHeaders = ['Brand', 'Material', 'Dimensi Roll', 'Saldo', 'Keterangan', 'Gudang'];
@@ -111,11 +107,10 @@ export default function ResultsTable({
         ];
       });
 
-      const filtered = normalizedRows.filter((rowCells) =>
-        rowCells.some((cell) => String(cell).toLowerCase().includes(searchTerm))
-      );
-
-      return { displayHeaders: stokHeaders, processedData: filtered };
+      return {
+        displayHeaders: stokHeaders,
+        processedData: filterAndRankRows(normalizedRows, trimmedQuery)
+      };
     }
 
     // Mode HARGA
@@ -131,13 +126,9 @@ export default function ResultsTable({
       return activePlan.map((col) => row[col.rawHeader] ?? '');
     });
 
-    const filtered = normalizedRows.filter((rowCells) =>
-      rowCells.some((cell) => cell !== null && cell !== undefined && String(cell).toLowerCase().includes(searchTerm))
-    );
-
     return {
       displayHeaders: activePlan.map((col) => col.label),
-      processedData: filtered
+      processedData: filterAndRankRows(normalizedRows, trimmedQuery)
     };
   }, [data, headers, trimmedQuery, currentMode]);
 
@@ -230,7 +221,7 @@ export default function ResultsTable({
                 {processedData.map((rowCells, rIdx) => (
                   <tr key={rIdx}>
                     {rowCells.map((cellValue, cIdx) => (
-                      <td key={cIdx}>{renderHighlightedText(cellValue, trimmedQuery)}</td>
+                      <td key={cIdx}>{renderHighlightedText(cellValue, highlightRegex)}</td>
                     ))}
                   </tr>
                 ))}
@@ -250,11 +241,11 @@ export default function ResultsTable({
               <div key={rIdx} className="mobile-card">
                 <div className="mobile-card-header">
                   <div className="mobile-card-title">
-                    {renderHighlightedText(primaryTitle, trimmedQuery)}
+                    {renderHighlightedText(primaryTitle, highlightRegex)}
                   </div>
                   {showBadge && (
                     <span className="mobile-card-badge">
-                      {renderHighlightedText(badgeValue, trimmedQuery)}
+                      {renderHighlightedText(badgeValue, highlightRegex)}
                     </span>
                   )}
                 </div>
@@ -269,7 +260,7 @@ export default function ResultsTable({
                     <div key={cIdx} className="mobile-card-row">
                       <span className="mobile-card-label">{headerName}:</span>
                       <span className="mobile-card-value">
-                        {renderHighlightedText(cellVal, trimmedQuery)}
+                        {renderHighlightedText(cellVal, highlightRegex)}
                       </span>
                     </div>
                   );
