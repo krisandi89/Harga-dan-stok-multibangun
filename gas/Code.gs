@@ -57,14 +57,15 @@ function doGet(e) {
 }
 
 function parseCsvFull(csvText, isStokMode) {
+  const normalizedText = String(csvText || '').replace(/^\uFEFF/, '');
   const rows = [];
   let curCell = '';
   let curRow = [];
   let inQuotes = false;
 
-  for (let i = 0; i < csvText.length; i++) {
-    const char = csvText[i];
-    const nextChar = csvText[i + 1];
+  for (let i = 0; i < normalizedText.length; i++) {
+    const char = normalizedText[i];
+    const nextChar = normalizedText[i + 1];
 
     if (char === '"') {
       if (inQuotes && nextChar === '"') {
@@ -99,7 +100,17 @@ function parseCsvFull(csvText, isStokMode) {
   if (isStokMode) {
     for (let i = 0; i < rows.length; i++) {
       if (rows[i][0] === 'Brand') {
-        return { headers: rows[i], data: rows.slice(i + 1) };
+        let lastBrand = '';
+        const data = rows.slice(i + 1).map(function (row) {
+          const nextRow = row.slice();
+          if (nextRow[0]) {
+            lastBrand = nextRow[0];
+          } else if (lastBrand && nextRow[1]) {
+            nextRow[0] = lastBrand;
+          }
+          return nextRow;
+        });
+        return { headers: rows[i], data: data };
       }
     }
   }

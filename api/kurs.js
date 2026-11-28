@@ -12,7 +12,7 @@ export default async function handler(req, res) {
 
   try {
     const kursData = await getUsdIdrKurs();
-    res.setHeader('Cache-Control', 'private, max-age=20');
+    res.setHeader('Cache-Control', 'private, max-age=20, stale-while-revalidate=60');
     return res.status(200).json(kursData);
   } catch (error) {
     console.error('Kurs API Error:', error);

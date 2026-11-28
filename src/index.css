@@ -143,6 +143,11 @@ body {
   flex-shrink: 0;
 }
 
+.kurs-live-dot.stale {
+  background: #f59e0b;
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.8);
+}
+
 .kurs-label {
   font-size: 0.75rem;
   font-weight: 700;
@@ -339,6 +344,75 @@ body {
   box-shadow: 0 0 15px var(--accent-glow);
 }
 
+.login-input-with-toggle {
+  padding-right: 2.8rem;
+}
+
+.password-toggle-btn {
+  position: absolute;
+  right: 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  padding: 0.25rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.password-toggle-btn:hover {
+  color: var(--text-main);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.data-error-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  background: rgba(239, 68, 68, 0.14);
+  border: 1px solid rgba(239, 68, 68, 0.32);
+  color: #fca5a5;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-md);
+  font-size: 0.86rem;
+}
+
+.data-error-text {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.retry-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #fecaca;
+  padding: 0.35rem 0.75rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  white-space: nowrap;
+}
+
+.retry-btn:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.35);
+}
+
+.retry-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .login-submit-btn {
   display: flex;
   align-items: center;
@@ -453,6 +527,26 @@ body {
   align-items: center;
   gap: 0.25rem;
   flex-shrink: 0;
+}
+
+.search-clear-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.search-clear-btn:hover {
+  color: var(--text-main);
+  background: rgba(255, 255, 255, 0.14);
 }
 
 kbd {
@@ -700,6 +794,8 @@ tr:hover td {
   color: var(--text-main);
   font-weight: 600;
   text-align: right;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 /* Status Bar & Refresh Footer */

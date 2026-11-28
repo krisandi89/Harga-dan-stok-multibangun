@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { AlertCircle, RefreshCw } from 'lucide-react';
 import Header from './components/Header';
 import ModeToggle from './components/ModeToggle';
 import SearchBar from './components/SearchBar';
@@ -29,7 +30,19 @@ export default function App() {
 
   const [countdown, setCountdown] = useState(AUTO_REFRESH_SECONDS);
 
+  const dataAbortRef = useRef({ harga: null, stok: null });
+  const kursAbortRef = useRef(null);
+
+  const abortAllRequests = useCallback(() => {
+    dataAbortRef.current.harga?.abort();
+    dataAbortRef.current.stok?.abort();
+    kursAbortRef.current?.abort();
+    dataAbortRef.current = { harga: null, stok: null };
+    kursAbortRef.current = null;
+  }, []);
+
   const handleSessionExpired = useCallback(() => {
+    abortAllRequests();
     setIsAuthenticated(false);
     setAuthError('Sesi Anda telah berakhir. Silakan login kembali.');
     setData({ harga: [], stok: [] });
@@ -37,21 +50,22 @@ export default function App() {
     setKurs(null);
     setKursError('');
     setDataError('');
-  }, []);
+  }, [abortAllRequests]);
 
   // Cek sesi cookie HttpOnly saat aplikasi pertama kali dibuka
   useEffect(() => {
-    let active = true;
+    const controller = new AbortController();
 
     async function checkSession() {
       try {
         const res = await fetch('/api/session', {
           method: 'GET',
-          credentials: 'same-origin'
+          credentials: 'same-origin',
+          signal: controller.signal
         });
 
         const json = await res.json().catch(() => ({}));
-        if (!active) return;
+        if (controller.signal.aborted) return;
 
         if (res.ok && json.authenticated) {
           setIsAuthenticated(true);
@@ -63,26 +77,32 @@ export default function App() {
           }
         }
       } catch (err) {
+        if (err.name === 'AbortError') return;
         console.warn('Gagal memeriksa sesi login:', err);
-        if (active) setIsAuthenticated(false);
+        setIsAuthenticated(false);
       } finally {
-        if (active) setIsCheckingSession(false);
+        if (!controller.signal.aborted) {
+          setIsCheckingSession(false);
+        }
       }
     }
 
     checkSession();
-    return () => {
-      active = false;
-    };
+    return () => controller.abort();
   }, []);
 
   // Fetch kurs jual Bank Panin USD/IDR dari /api/kurs (autentikasi via HttpOnly cookie)
   const fetchKurs = useCallback(async () => {
+    kursAbortRef.current?.abort();
+    const controller = new AbortController();
+    kursAbortRef.current = controller;
+
     setKursLoading(true);
     try {
       const res = await fetch('/api/kurs', {
         method: 'GET',
-        credentials: 'same-origin'
+        credentials: 'same-origin',
+        signal: controller.signal
       });
 
       if (res.status === 401) {
@@ -102,16 +122,23 @@ export default function App() {
       setKursError('');
       return true;
     } catch (err) {
+      if (err.name === 'AbortError') return false;
       console.warn('Gagal memuat kurs Panin USD/IDR:', err);
       setKursError('Gagal memuat kurs Panin');
       return false;
     } finally {
-      setKursLoading(false);
+      if (!controller.signal.aborted) {
+        setKursLoading(false);
+      }
     }
   }, [handleSessionExpired]);
 
-  // Fetch data harga/stok melalui serverless proxy /api/data (tanpa fallback publik dari client)
+  // Fetch data harga/stok melalui serverless proxy /api/data dengan AbortController
   const fetchData = useCallback(async (modeToFetch, isManual = false) => {
+    dataAbortRef.current[modeToFetch]?.abort();
+    const controller = new AbortController();
+    dataAbortRef.current[modeToFetch] = controller;
+
     if (isManual) setIsRefreshing(true);
     else setIsLoading(true);
 
@@ -119,7 +146,8 @@ export default function App() {
       const params = new URLSearchParams({ mode: modeToFetch });
       const res = await fetch(`/api/data?${params.toString()}`, {
         method: 'GET',
-        credentials: 'same-origin'
+        credentials: 'same-origin',
+        signal: controller.signal
       });
 
       if (res.status === 401) {
@@ -137,12 +165,15 @@ export default function App() {
       setDataError('');
       return true;
     } catch (err) {
+      if (err.name === 'AbortError') return false;
       console.error(`Gagal memuat data ${modeToFetch}:`, err);
       setDataError(err.message || `Gagal memuat data ${modeToFetch}.`);
       return false;
     } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
+      if (!controller.signal.aborted) {
+        setIsLoading(false);
+        setIsRefreshing(false);
+      }
     }
   }, [handleSessionExpired]);
 
@@ -181,6 +212,7 @@ export default function App() {
 
   // Logout melalui POST /api/logout untuk menghapus HttpOnly cookie di server
   const handleLogout = async () => {
+    abortAllRequests();
     try {
       await fetch('/api/logout', {
         method: 'POST',
@@ -217,7 +249,8 @@ export default function App() {
     if (!isAuthenticated) return;
     fetchData('harga');
     fetchKurs();
-  }, [isAuthenticated, fetchData, fetchKurs]);
+    return () => abortAllRequests();
+  }, [isAuthenticated, fetchData, fetchKurs, abortAllRequests]);
 
   // Countdown tick (tanpa memanggil async side-effect di dalam state updater)
   useEffect(() => {
@@ -276,8 +309,20 @@ export default function App() {
       <SearchBar query={query} setQuery={setQuery} currentMode={currentMode} />
 
       {dataError && (
-        <div className="login-error-alert" role="alert">
-          <span>{dataError}</span>
+        <div className="data-error-banner" role="alert">
+          <div className="data-error-text">
+            <AlertCircle size={16} />
+            <span>{dataError}</span>
+          </div>
+          <button
+            type="button"
+            className="retry-btn"
+            onClick={handleManualRefresh}
+            disabled={isRefreshing || isLoading}
+          >
+            <RefreshCw size={13} />
+            Coba Lagi
+          </button>
         </div>
       )}
 

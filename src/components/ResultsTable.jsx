@@ -1,5 +1,63 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Search, AlertCircle, LayoutList, Table } from 'lucide-react';
+
+const IS_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/i.test(navigator.platform || navigator.userAgent);
+
+function escapeRegex(string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function renderHighlightedText(text, searchTerm) {
+  if (text === null || text === undefined || text === '') return '-';
+  const trimmed = searchTerm.trim();
+  const textStr = String(text);
+  if (!trimmed) return textStr;
+
+  const trimmedLower = trimmed.toLowerCase();
+  const regex = new RegExp(`(${escapeRegex(trimmed)})`, 'gi');
+  const parts = textStr.split(regex);
+
+  return parts.map((part, i) =>
+    part.toLowerCase() === trimmedLower ? (
+      <span key={i} className="highlight">
+        {part}
+      </span>
+    ) : (
+      part
+    )
+  );
+}
+
+/**
+ * Normalize HARGA headers:
+ * - Drop empty spacer columns and global sheet-level helper columns (e.g. "Kurs Jual USD Bank Panin").
+ * - Disambiguate duplicate "Konversi" headers into "Konversi Satuan" / "Konversi Net".
+ * - Normalize casing typos like "Harga NEt" -> "Harga Net".
+ */
+function buildHargaColumnPlan(rawHeaders = []) {
+  const columns = [];
+  let prevCleanHeader = '';
+
+  rawHeaders.forEach((rawHeader, index) => {
+    const trimmed = String(rawHeader || '').trim();
+    if (!trimmed) return;
+    if (/^kurs\s+jual/i.test(trimmed)) return;
+
+    let label = trimmed.replace(/^harga\s+net$/i, 'Harga Net');
+    if (/^konversi$/i.test(label)) {
+      if (/satuan/i.test(prevCleanHeader)) {
+        label = 'Konversi Satuan';
+      } else if (/net/i.test(prevCleanHeader)) {
+        label = 'Konversi Net';
+      }
+    }
+
+    columns.push({ index, rawHeader: trimmed, label });
+    prevCleanHeader = label;
+  });
+
+  return columns;
+}
 
 export default function ResultsTable({
   isLoading,
@@ -8,28 +66,80 @@ export default function ResultsTable({
   query,
   currentMode
 }) {
-  const [viewLayout, setViewLayout] = useState('cards'); // Default View Mode: 'cards' (pengguna bisa switch ke 'table')
+  const [viewLayout, setViewLayout] = useState('cards');
 
-  // Helper to escape regex special chars
-  const escapeRegex = (string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const trimmedQuery = query.trim();
 
-  // Helper to highlight matching text
-  const renderHighlightedText = (text, searchTerm) => {
-    if (!text || !searchTerm.trim()) return text || '-';
-    const textStr = String(text);
-    const regex = new RegExp(`(${escapeRegex(searchTerm.trim())})`, 'gi');
-    const parts = textStr.split(regex);
+  const { displayHeaders, processedData } = useMemo(() => {
+    if (!trimmedQuery || !Array.isArray(data) || data.length === 0) {
+      return { displayHeaders: headers || [], processedData: [] };
+    }
 
-    return parts.map((part, i) =>
-      regex.test(part) ? (
-        <span key={i} className="highlight">
-          {part}
-        </span>
-      ) : (
-        part
-      )
+    const searchTerm = trimmedQuery.toLowerCase();
+
+    if (currentMode === 'stok') {
+      const stokHeaders = ['Brand', 'Material', 'Dimensi Roll', 'Saldo', 'Keterangan', 'Gudang'];
+      let lastBrand = '';
+
+      const normalizedRows = data.map((row) => {
+        if (Array.isArray(row)) {
+          const rawBrand = row[0] || '';
+          if (rawBrand) lastBrand = rawBrand;
+          const brand = rawBrand || lastBrand || '-';
+          const material = row[1] || '-';
+          const dimensi = row[2] || '-';
+          const saldoValue = row[3] || '';
+          const unit = row[4] || '';
+          const saldoFormatted = unit ? `${saldoValue} ${unit}`.trim() : (saldoValue || '-');
+          const keterangan = row[5] || '-';
+          const gudang = row[6] || '-';
+          return [brand, material, dimensi, saldoFormatted, keterangan, gudang];
+        }
+
+        const rawBrand = row['Brand'] || '';
+        if (rawBrand) lastBrand = rawBrand;
+        const saldoValue = row['Saldo'] || '';
+        const unitKey = Object.keys(row).find((key) => key === '' || /^(pcs|m2|m'|m|batang|roll)$/i.test(key));
+        const unit = unitKey ? row[unitKey] : '';
+        return [
+          rawBrand || lastBrand || '-',
+          row['Material'] || '-',
+          row['Dimensi Roll'] || '-',
+          unit ? `${saldoValue} ${unit}`.trim() : (saldoValue || '-'),
+          row['Keterangan'] || '-',
+          row['Gudang'] || '-'
+        ];
+      });
+
+      const filtered = normalizedRows.filter((rowCells) =>
+        rowCells.some((cell) => String(cell).toLowerCase().includes(searchTerm))
+      );
+
+      return { displayHeaders: stokHeaders, processedData: filtered };
+    }
+
+    // Mode HARGA
+    const columnPlan = buildHargaColumnPlan(headers);
+    const activePlan = columnPlan.length > 0
+      ? columnPlan
+      : (headers || []).map((h, index) => ({ index, rawHeader: h, label: h || `Kolom ${index + 1}` }));
+
+    const normalizedRows = data.map((row) => {
+      if (Array.isArray(row)) {
+        return activePlan.map((col) => row[col.index] ?? '');
+      }
+      return activePlan.map((col) => row[col.rawHeader] ?? '');
+    });
+
+    const filtered = normalizedRows.filter((rowCells) =>
+      rowCells.some((cell) => cell !== null && cell !== undefined && String(cell).toLowerCase().includes(searchTerm))
     );
-  };
+
+    return {
+      displayHeaders: activePlan.map((col) => col.label),
+      processedData: filtered
+    };
+  }, [data, headers, trimmedQuery, currentMode]);
 
   if (isLoading) {
     return (
@@ -42,7 +152,7 @@ export default function ResultsTable({
     );
   }
 
-  if (!query.trim()) {
+  if (!trimmedQuery) {
     return (
       <div className="results-container">
         <div className="empty-state">
@@ -50,84 +160,39 @@ export default function ResultsTable({
           <h2>Mulai Pencarian</h2>
           <p>Ketik kata kunci untuk mencari {currentMode} material</p>
           <div className="footer-hint" style={{ marginTop: '0.5rem' }}>
-            <kbd>Ctrl</kbd> + <kbd>K</kbd> untuk fokus ke pencarian
+            <kbd>{IS_MAC ? '⌘' : 'Ctrl'}</kbd> + <kbd>K</kbd> untuk fokus ke pencarian
           </div>
         </div>
       </div>
     );
   }
 
-  const searchTerm = query.toLowerCase().trim();
-
-  // Filter rows matching search query across all cells in array or object
-  const filteredData = data.filter((row) => {
-    if (Array.isArray(row)) {
-      return row.some((cell) => cell !== null && cell !== undefined && String(cell).toLowerCase().includes(searchTerm));
-    }
-    return Object.values(row).some(
-      (val) => val !== null && val !== undefined && String(val).toLowerCase().includes(searchTerm)
-    );
-  });
-
-  if (filteredData.length === 0) {
+  if (processedData.length === 0) {
     return (
       <div className="results-container">
         <div className="no-results">
           <AlertCircle className="big-icon" />
-          <p>Tidak ditemukan hasil untuk "{query}"</p>
+          <p>Tidak ditemukan hasil untuk &ldquo;{query}&rdquo;</p>
         </div>
       </div>
     );
   }
 
-  // Format headers & display logic
-  let displayHeaders = headers;
-  let processedData = [];
-
-  if (currentMode === 'harga') {
-    processedData = filteredData.map((row) => {
-      if (Array.isArray(row)) return row;
-      return headers.map((h) => row[h] || '');
-    });
-  } else if (currentMode === 'stok') {
-    displayHeaders = ['Brand', 'Material', 'Dimensi Roll', 'Saldo', 'Keterangan', 'Gudang'];
-    
-    processedData = filteredData.map((row) => {
-      if (Array.isArray(row)) {
-        const brand = row[0] || '-';
-        const material = row[1] || '-';
-        const dimensi = row[2] || '-';
-        const saldoValue = row[3] || '';
-        const unit = row[4] || '';
-        const saldoFormatted = unit ? `${saldoValue} ${unit}` : (saldoValue || '-');
-        const keterangan = row[5] || '-';
-        const gudang = row[6] || '-';
-        return [brand, material, dimensi, saldoFormatted, keterangan, gudang];
-      }
-      // Object fallback
-      const saldoValue = row['Saldo'] || '';
-      const unitKey = Object.keys(row).find((key) => key === '' || key.match(/^(pcs|m2|m'|m|batang|roll)$/i));
-      const unit = unitKey ? row[unitKey] : '';
-      return [
-        row['Brand'] || '-',
-        row['Material'] || '-',
-        row['Dimensi Roll'] || '-',
-        unit ? `${saldoValue} ${unit}` : (saldoValue || '-'),
-        row['Keterangan'] || '-',
-        row['Gudang'] || '-'
-      ];
-    });
-  }
+  const brandColIdx = displayHeaders.findIndex((h) => /^brand$/i.test(h));
+  const materialColIdx = displayHeaders.findIndex((h) => /^material$/i.test(h));
+  const titleIdx = materialColIdx !== -1 ? materialColIdx : (displayHeaders.length > 1 ? 1 : 0);
+  const badgeIdx = brandColIdx !== -1 ? brandColIdx : (titleIdx !== 0 ? 0 : -1);
 
   return (
     <div className="results-container">
       <div className="results-header-tools">
         <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-          Menampilkan {filteredData.length} hasil
+          Menampilkan {processedData.length} hasil
         </span>
 
         <div className="view-mode-toggle">
           <button
+            type="button"
             className={`view-mode-btn ${viewLayout === 'table' ? 'active' : ''}`}
             onClick={() => setViewLayout('table')}
             title="Tampilan Tabel (Sticky Left Column)"
@@ -136,9 +201,10 @@ export default function ResultsTable({
             <span>Tabel</span>
           </button>
           <button
+            type="button"
             className={`view-mode-btn ${viewLayout === 'cards' ? 'active' : ''}`}
             onClick={() => setViewLayout('cards')}
-            title="Tampilan Kartu Ringkas Mobile"
+            title="Tampilan Kartu Ringkas"
           >
             <LayoutList size={14} />
             <span>Kartu</span>
@@ -153,48 +219,57 @@ export default function ResultsTable({
           </div>
           <div className="table-wrapper">
             <table>
-            <thead>
-              <tr>
-                {displayHeaders.map((h, idx) => (
-                  <th key={idx}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {processedData.map((rowCells, rIdx) => (
-                <tr key={rIdx}>
-                  {rowCells.map((cellValue, cIdx) => (
-                    <td key={cIdx}>{renderHighlightedText(cellValue, query)}</td>
+              <thead>
+                <tr>
+                  {displayHeaders.map((h, idx) => (
+                    <th key={idx}>{h}</th>
                   ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {processedData.map((rowCells, rIdx) => (
+                  <tr key={rIdx}>
+                    {rowCells.map((cellValue, cIdx) => (
+                      <td key={cIdx}>{renderHighlightedText(cellValue, trimmedQuery)}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </>
       ) : (
         <div className="mobile-cards-grid">
           {processedData.map((rowCells, rIdx) => {
-            const primaryTitle = rowCells[1] || rowCells[0] || 'Item Material';
-            const badgeTag = rowCells[0] || 'BRAND';
+            const titleValue = rowCells[titleIdx];
+            const badgeValue = badgeIdx !== -1 ? rowCells[badgeIdx] : '';
+            const primaryTitle = titleValue || badgeValue || 'Item Material';
+            const showBadge = badgeIdx !== -1 && badgeValue && badgeValue !== '-' && primaryTitle !== badgeValue;
+
             return (
               <div key={rIdx} className="mobile-card">
                 <div className="mobile-card-header">
                   <div className="mobile-card-title">
-                    {renderHighlightedText(primaryTitle, query)}
+                    {renderHighlightedText(primaryTitle, trimmedQuery)}
                   </div>
-                  <span className="mobile-card-badge">
-                    {renderHighlightedText(badgeTag, query)}
-                  </span>
+                  {showBadge && (
+                    <span className="mobile-card-badge">
+                      {renderHighlightedText(badgeValue, trimmedQuery)}
+                    </span>
+                  )}
                 </div>
                 {displayHeaders.map((headerName, cIdx) => {
-                  if (cIdx === 0 && primaryTitle === rowCells[1]) return null;
-                  if (cIdx === 1) return null;
+                  if (cIdx === titleIdx && titleValue) return null;
+                  if (cIdx === badgeIdx && (showBadge || primaryTitle === badgeValue)) return null;
+                  const cellVal = rowCells[cIdx];
+                  if (currentMode === 'harga' && (cellVal === '' || cellVal === null || cellVal === undefined)) {
+                    return null;
+                  }
                   return (
                     <div key={cIdx} className="mobile-card-row">
                       <span className="mobile-card-label">{headerName}:</span>
                       <span className="mobile-card-value">
-                        {renderHighlightedText(rowCells[cIdx], query)}
+                        {renderHighlightedText(cellVal, trimmedQuery)}
                       </span>
                     </div>
                   );
@@ -206,10 +281,9 @@ export default function ResultsTable({
       )}
 
       <div className="results-footer">
-        <span>{filteredData.length} item ditemukan</span>
+        <span>{processedData.length} item ditemukan</span>
         <span>Mode: {currentMode.toUpperCase()}</span>
       </div>
     </div>
   );
 }
-

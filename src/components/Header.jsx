@@ -12,16 +12,18 @@ function formatTimeWib(isoString) {
   if (!isoString) return '-';
   const date = new Date(isoString);
   if (Number.isNaN(date.getTime())) return '-';
-  return date.toLocaleTimeString('id-ID', {
+  return `${date.toLocaleTimeString('id-ID', {
+    timeZone: 'Asia/Jakarta',
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit'
-  });
+  })} WIB`;
 }
 
 export default function Header({ isAuthenticated, onLogout, kurs, kursLoading, kursError }) {
   const paninSell = kurs?.panin?.sell;
   const updatedTime = formatTimeWib(kurs?.fetchedAt);
+  const sourceLabel = kurs?.panin?.source || 'Bank Panin';
 
   return (
     <header className="header">
@@ -30,7 +32,7 @@ export default function Header({ isAuthenticated, onLogout, kurs, kursLoading, k
           <div style={{ fontSize: '0.8rem', color: '#9ca3af' }}>
             <span style={{ color: '#10b981', fontWeight: 'bold' }}>●</span> Terautentikasi
           </div>
-          <button className="logout-btn" onClick={onLogout} title="Keluar dari Aplikasi">
+          <button type="button" className="logout-btn" onClick={onLogout} title="Keluar dari Aplikasi">
             <LogOut size={14} />
             Keluar
           </button>
@@ -45,7 +47,10 @@ export default function Header({ isAuthenticated, onLogout, kurs, kursLoading, k
       {isAuthenticated && (
         <div className="kurs-banner" aria-live="polite">
           <div className="kurs-main">
-            <span className="kurs-live-dot" title="Update otomatis setiap 30 detik" />
+            <span
+              className={`kurs-live-dot ${kurs?.stale ? 'stale' : ''}`}
+              title={kurs?.stale ? 'Menampilkan kurs cadangan sementara' : 'Update otomatis setiap 30 detik'}
+            />
             <span className="kurs-label">Kurs Panin · Jual</span>
 
             {kursLoading && !paninSell ? (
@@ -59,7 +64,7 @@ export default function Header({ isAuthenticated, onLogout, kurs, kursLoading, k
 
           {updatedTime !== '-' && (
             <div className="kurs-meta">
-              <span className="kurs-updated" title="Sumber: Kurs Jual Bank Panin">
+              <span className="kurs-updated" title={`Sumber: Kurs Jual ${sourceLabel}`}>
                 <Clock size={12} />
                 {updatedTime}
               </span>

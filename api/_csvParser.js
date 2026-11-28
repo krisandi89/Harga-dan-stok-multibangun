@@ -1,13 +1,14 @@
 // Multiline-aware CSV Parser: Preserves cell line-breaks (e.g. multiline Keterangan)
 export function parseCsvFull(csvText, isStokMode = false) {
+  const normalizedText = typeof csvText === 'string' ? csvText.replace(/^\uFEFF/, '') : '';
   const rows = [];
   let curCell = '';
   let curRow = [];
   let inQuotes = false;
 
-  for (let i = 0; i < csvText.length; i++) {
-    const char = csvText[i];
-    const nextChar = csvText[i + 1];
+  for (let i = 0; i < normalizedText.length; i++) {
+    const char = normalizedText[i];
+    const nextChar = normalizedText[i + 1];
 
     if (char === '"') {
       if (inQuotes && nextChar === '"') {
@@ -49,7 +50,18 @@ export function parseCsvFull(csvText, isStokMode = false) {
     }
     if (headerIdx !== -1) {
       const headers = rows[headerIdx];
-      const data = rows.slice(headerIdx + 1);
+      let lastBrand = '';
+      // Forward-fill vertically merged Brand cells in STOK sheet so every item
+      // retains its Brand for both search matching and card/table display.
+      const data = rows.slice(headerIdx + 1).map((row) => {
+        const nextRow = [...row];
+        if (nextRow[0]) {
+          lastBrand = nextRow[0];
+        } else if (lastBrand && nextRow[1]) {
+          nextRow[0] = lastBrand;
+        }
+        return nextRow;
+      });
       return { headers, data };
     }
   }
